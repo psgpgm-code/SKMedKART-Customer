@@ -1,5 +1,5 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
-import { getFirestore, collection, addDoc, getDocs, query, where, serverTimestamp, onSnapshot, doc, runTransaction } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+import { getFirestore, collection, query, where, serverTimestamp, onSnapshot, doc, runTransaction } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js';
 
 const K='skm_v10_';
@@ -54,18 +54,87 @@ function updateCartBar(){let c=cart(),b=document.getElementById('cartbar');if(!b
 
 window.customerLogin=()=>{let n=document.getElementById('loginName').value.trim(),p=document.getElementById('loginPhone').value.trim();if(!n||!/^[0-9]{10}$/.test(p))return alert('Enter your name and valid 10-digit mobile number.');set('user',{name:n,phone:p});page('home')};
 window.goToCheckout=()=>{if(!cart().length)return alert('Your cart is empty.');let u=get('user',null);if(!u){alert('Please Login / Register first.');page('login');return}document.getElementById('name').value=u.name||'';document.getElementById('phone').value=u.phone||'';page('checkout')};
-async function uploadRx(file,phone){if(!file)return null;if(!configured)return {name:file.name,url:null,local:true};const r=ref(storage,`prescriptions/${phone}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g,'_')}`);await uploadBytes(r,file);return {name:file.name,url:await getDownloadURL(r)}}
-async function reserveStock(items){if(!configured)return;await runTransaction(db,async tx=>{for(const x of items){const r=doc(db,'products',x.id),snap=await tx.get(r);if(!snap.exists())throw new Error(x.name+' is unavailable.');const p=normalizeProduct(snap.data(),snap.id);if(Number(p.stock)<x.qty)throw new Error('Insufficient stock for '+x.name);tx.update(r,{stock:Number(p.stock)-x.qty,updatedAt:serverTimestamp()})}})}
+const withTimeout=(promise,ms,label)=>Promise.race([
+  promise,
+  new Promise((_,reject)=>setTimeout(()=>reject(new Error(label+' timed out. Please check your internet/Firebase settings and try again.')),ms))
+]);
+
+async function uploadRx(file,phone){
+ if(!file)return null;
+ if(!configured)return {name:file.name,url:null,local:true};
+ if(!storage)throw new Error('Firebase Storage is not initialized.');
+ const safe=file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
+ const r=ref(storage,`prescriptions/${phone}/${Date.now()}_${safe}`);
+ try{
+   await withTimeout(uploadBytes(r,file),30000,'Prescription upload');
+   const url=await withTimeout(getDownloadURL(r),15000,'Prescription URL lookup');
+   return {name:file.name,url};
+ }catch(e){
+   throw new Error('Prescription upload failed: '+(e?.message||e));
+ }
+}
+
+async function createOnlineOrderAtomically(items,o){
+ const orderRef=doc(collection(db,'orders'));
+ await withTimeout(runTransaction(db,async tx=>{
+   const productRefs=items.map(x=>({x,r:doc(db,'products',x.id)}));
+   const snaps=[];
+   for(const item of productRefs)snaps.push({item,snap:await tx.get(item.r)});
+   for(const {item,snap} of snaps){
+     const x=item.x;
+     if(!snap.exists())throw new Error(x.name+' is unavailable.');
+     const p=normalizeProduct(snap.data(),snap.id);
+     if(Number(p.stock)<Number(x.qty))throw new Error('Insufficient stock for '+x.name);
+   }
+   for(const {item,snap} of snaps){
+     const x=item.x,p=normalizeProduct(snap.data(),snap.id);
+     tx.update(item.r,{stock:Number(p.stock)-Number(x.qty),updatedAt:serverTimestamp()});
+   }
+   tx.set(orderRef,o);
+ }),30000,'Order submission');
+ return orderRef.id;
+}
+
 window.placeOrder=async()=>{
  const c=cart(),nameV=document.getElementById('name').value.trim(),phoneV=document.getElementById('phone').value.trim(),addressV=document.getElementById('address').value.trim(),deliveryV=document.getElementById('delivery').value,payV=document.getElementById('pay').value;
- if(!c.length)return alert('Cart is empty.');if(!nameV||!/^[0-9]{10}$/.test(phoneV)||(!addressV&&deliveryV==='Home Delivery'))return alert('Please complete name, valid mobile number and delivery address.');
- const needsRx=c.some(x=>x.rx),file=document.getElementById('rxfile').files[0];if(needsRx&&!file)return alert('Please upload the prescription for prescription-required medicine.');
- const btn=document.activeElement;try{if(btn?.tagName==='BUTTON'){btn.disabled=true;btn.textContent='Placing Order...'}const rx=await uploadRx(file,phoneV),status=needsRx?'Prescription Under Pharmacist Review':'Order Placed';
- const o={orderNumber:'SKM'+Date.now(),customer:{name:nameV,phone:phoneV,address:addressV,delivery:deliveryV},payment:payV,paymentStatus:'Pending',items:c,total:total(c),status,needsRx,prescription:{...(rx||{}),doctor:document.getElementById('doctor').value.trim()},pharmacistNote:'',createdAt:configured?serverTimestamp():new Date().toISOString(),updatedAt:configured?serverTimestamp():new Date().toISOString(),timeline:[{status,note:'Order submitted by customer',at:new Date().toISOString()}]};
- if(configured){await reserveStock(c);const d=await addDoc(collection(db,'orders'),o);o.id=d.id}else{const id='LOCAL_'+Date.now();o.id=id;const arr=get('orders',[]);arr.unshift(o);set('orders',arr)}
- set('cart',[]);set('user',{name:nameV,phone:phoneV});updateCartBar();alert('Order placed successfully. Order ID: '+o.orderNumber);page('orders');
- }catch(e){console.error(e);alert('Order could not be submitted: '+e.message)}finally{if(btn?.tagName==='BUTTON'){btn.disabled=false;btn.textContent='Place Order'}}
+ if(!c.length)return alert('Cart is empty.');
+ if(!nameV||!/^[0-9]{10}$/.test(phoneV)||(!addressV&&deliveryV==='Home Delivery'))return alert('Please complete name, valid mobile number and delivery address.');
+ const needsRx=c.some(x=>x.rx),file=document.getElementById('rxfile').files[0];
+ if(needsRx&&!file)return alert('Please upload the prescription for prescription-required medicine.');
+ const active=document.activeElement;
+ const btn=(active?.tagName==='BUTTON'?active:document.querySelector('button[onclick*="placeOrder"]'));
+ const oldText=btn?.textContent||'Place Order';
+ try{
+   if(btn){btn.disabled=true;btn.textContent=needsRx?'Uploading Prescription...':'Placing Order...'}
+   const rx=needsRx?await uploadRx(file,phoneV):null;
+   if(btn)btn.textContent='Submitting Order...';
+   const status=needsRx?'Prescription Under Pharmacist Review':'Order Placed';
+   const o={
+     orderNumber:'SKM'+Date.now(),
+     customer:{name:nameV,phone:phoneV,address:addressV,delivery:deliveryV},
+     payment:payV,paymentStatus:'Pending',items:c,total:total(c),status,needsRx,
+     prescription:{...(rx||{}),doctor:document.getElementById('doctor').value.trim()},
+     pharmacistNote:'',
+     createdAt:configured?serverTimestamp():new Date().toISOString(),
+     updatedAt:configured?serverTimestamp():new Date().toISOString(),
+     timeline:[{status,note:'Order submitted by customer',at:new Date().toISOString()}]
+   };
+   if(configured){
+     o.id=await createOnlineOrderAtomically(c,o);
+   }else{
+     const id='LOCAL_'+Date.now();o.id=id;const arr=get('orders',[]);arr.unshift(o);set('orders',arr);
+   }
+   set('cart',[]);set('user',{name:nameV,phone:phoneV});updateCartBar();
+   alert('Order placed successfully. Order ID: '+o.orderNumber);
+   page('orders');
+ }catch(e){
+   console.error('SKMedKART order error:',e);
+   alert('Order could not be submitted. '+(e?.message||'Please try again.'));
+ }finally{
+   if(btn){btn.disabled=false;btn.textContent=oldText}
+ }
 };
+
 function startOrders(){let u=get('user',null);if(!u){renderOrders([]);return}if(!configured){renderOrders(get('orders',[]).filter(o=>o.customer?.phone===u.phone).sort((a,b)=>ts(b.createdAt)-ts(a.createdAt)));return}if(unsubOrders)unsubOrders();unsubOrders=onSnapshot(query(collection(db,'orders'),where('customer.phone','==',u.phone)),s=>{liveOrders=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>ts(b.createdAt)-ts(a.createdAt));renderOrders(liveOrders)},e=>{console.error(e);document.getElementById('ordersList').innerHTML='<div class="card warning">Unable to load orders: '+esc(e.message||'Check Firebase rules.')+'</div>'})}
 function renderOrders(arr){let rank=['Order Placed','Prescription Under Pharmacist Review','Confirmed','Payment Pending','Ready','Out for Delivery','Delivered'];document.getElementById('ordersList').innerHTML=arr.map(o=>`<div class="card"><b>${esc(o.orderNumber||o.id)}</b><div class="status"><b>${esc(o.status)}</b></div><div class="small">${o.createdAt?.toDate?o.createdAt.toDate().toLocaleString():esc(o.createdAt||'')}</div><p>${(o.items||[]).map(x=>esc(x.name)+' × '+x.qty).join(', ')}</p><b>Total: ₹${o.total}</b><p class="small">Payment: ${esc(o.payment)} • ${esc(o.paymentStatus)}</p>${o.pharmacistNote?'<div class="card note success"><b>Pharmacist message:</b> '+esc(o.pharmacistNote)+'</div>':''}${o.status==='Payment Pending'?`<button onclick="payOrder('${esc(o.id)}')">Pay Now</button>`:''}<div class="steps">${rank.map(s=>`<div class="${rank.indexOf(o.status)>=rank.indexOf(s)?'done':''}">${rank.indexOf(o.status)>=rank.indexOf(s)?'●':'○'} ${s}</div>`).join('')}</div><button class="secondary" onclick="reorderById('${esc(o.id)}')">Reorder</button></div>`).join('')||'<div class="card small">No orders yet.</div>'}
 window.payOrder=id=>{const o=(configured?liveOrders:get('orders',[])).find(x=>x.id===id);if(!o)return;const upi=window.SKMED_UPI_ID||'';if(!upi)return alert('Online payment is not configured by the pharmacy yet.');location.href='upi://pay?pa='+encodeURIComponent(upi)+'&pn='+encodeURIComponent(window.SKMED_UPI_NAME||'Sri Krishna Medicals')+'&am='+encodeURIComponent(o.total)+'&cu=INR&tn='+encodeURIComponent(o.orderNumber)};
