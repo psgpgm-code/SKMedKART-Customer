@@ -66,8 +66,8 @@ async function uploadRx(file,phone){
  const safe=file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
  const r=ref(storage,`prescriptions/${phone}/${Date.now()}_${safe}`);
  try{
-   await withTimeout(uploadBytes(r,file),30000,'Prescription upload');
-   const url=await withTimeout(getDownloadURL(r),15000,'Prescription URL lookup');
+   await uploadBytes(r,file);
+const url=await getDownloadURL(r);
    return {name:file.name,url};
  }catch(e){
    throw new Error('Prescription upload failed: '+(e?.message||e));
