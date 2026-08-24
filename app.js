@@ -106,7 +106,11 @@ window.placeOrder=async()=>{
  const oldText=btn?.textContent||'Place Order';
  try{
    if(btn){btn.disabled=true;btn.textContent=needsRx?'Uploading Prescription...':'Placing Order...'}
-   const rx=needsRx?await uploadRx(file,phoneV):null;
+   let rx=null;
+
+if(needsRx && file){
+  rx={name:file.name, whatsapp:true};
+}
    if(btn)btn.textContent='Submitting Order...';
    const status=needsRx?'Prescription Under Pharmacist Review':'Order Placed';
    const o={
@@ -125,7 +129,26 @@ window.placeOrder=async()=>{
      const id='LOCAL_'+Date.now();o.id=id;const arr=get('orders',[]);arr.unshift(o);set('orders',arr);
    }
    set('cart',[]);set('user',{name:nameV,phone:phoneV});updateCartBar();
-   alert('Order placed successfully. Order ID: '+o.orderNumber);
+   if(needsRx && file){
+  const message=`Prescription for Order ${o.orderNumber}\nCustomer: ${nameV}\nPhone: ${phoneV}\n\nPlease send the prescription image to Sri Krishna Medicals.`;
+
+  if(navigator.share && navigator.canShare && navigator.canShare({files:[file]})){
+    try{
+      await navigator.share({
+        title:'Send Prescription',
+        text:message,
+        files:[file]
+      });
+    }catch(e){}
+  }else{
+    window.open(
+      'https://wa.me/918300363317?text='+encodeURIComponent(message),
+      '_blank'
+    );
+  }
+}
+
+alert('Order placed successfully. Order ID: '+o.orderNumber);
    page('orders');
  }catch(e){
    console.error('SKMedKART order error:',e);
