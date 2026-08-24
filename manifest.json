@@ -1,23 +1,25 @@
 {
-  "name": "SKMedKART",
+  "name": "SKMedKART Customer",
   "short_name": "SKMedKART",
-  "description": "Sri Krishna Medicals - Online Medicine Ordering",
-  "start_url": "./",
-  "scope": "./",
+  "id": "/SKMedKART-Customer/",
+  "start_url": "/SKMedKART-Customer/",
+  "scope": "/SKMedKART-Customer/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#0b5d7a",
-  "orientation": "portrait-primary",
+  "display_override": ["standalone", "minimal-ui"],
+  "background_color": "#f5f7fb",
+  "theme_color": "#125a7a",
   "icons": [
     {
-      "src": "icons/icon-192.png",
+      "src": "/SKMedKART-Customer/icon-192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
-      "src": "icons/icon-512.png",
+      "src": "/SKMedKART-Customer/icon-512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }
