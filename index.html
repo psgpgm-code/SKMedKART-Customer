@@ -2,299 +2,825 @@
 <html lang="en-IN">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+
+<meta name="viewport"
+content="width=device-width, initial-scale=1, viewport-fit=cover">
 
 <meta name="theme-color" content="#125a7a">
-<meta name="description" content="SKMedKART - Sri Krishna Medicals Online Medicine Ordering">
 
-<!-- PWA -->
-<link rel="manifest" href="manifest.json">
-<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
-<link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta name="description"
+content="SKMedKART - Sri Krishna Medicals Online Medicine Ordering">
 
-<title>SKMedKART V10 | Sri Krishna Medicals</title>
+<!-- PWA MANIFEST -->
+<link rel="manifest" href="./manifest.json">
+
+<!-- APP ICON -->
+<link rel="icon"
+type="image/png"
+sizes="192x192"
+href="./icon-192.png">
+
+<link rel="apple-touch-icon"
+href="./icon-192.png">
+
+<title>SKMedKART | Sri Krishna Medicals</title>
 
 <style>
-*{box-sizing:border-box}
-body{margin:0;font-family:Arial,sans-serif;background:#f4f7fb;color:#173042;padding-bottom:82px}
-header{position:sticky;top:0;z-index:20;background:#fff;padding:14px 16px;border-bottom:1px solid #e5e9ef}
-.brand{font-weight:800;color:#125a7a;font-size:25px}
-.sub,.small{color:#64748b}
-.sub{font-size:13px}
-.small{font-size:12px}
-.page{display:none;max-width:760px;margin:auto;padding:12px}
-.page.active{display:block}
-.card,.cat{background:#fff;border:1px solid #e4ebf1;border-radius:18px;padding:15px;margin:10px 0}
-.hero{background:linear-gradient(135deg,#125a7a,#2c8ca7);color:#fff;border-radius:22px;padding:23px}
-.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
-.cat{margin:0;min-height:115px;cursor:pointer}
-.cat span{font-size:30px}
-.cat b{display:block;margin-top:8px}
-.product{display:flex;gap:10px;align-items:center}
-.pic{width:55px;height:55px;border-radius:14px;background:#e7f4f7;display:grid;place-items:center;font-size:26px}
-.info{flex:1}
-.price{font-weight:800}
-.badge{font-size:11px;padding:4px 8px;border-radius:99px;background:#e7f6ed;color:#16804c;display:inline-block}
-.rx{background:#fff3d6;color:#986000}
-.warning{background:#fff3cd;border-color:#ffe08a;color:#765500}
-.success{background:#e8f7ef;border-color:#b9e7cc;color:#126a3f}
-.danger{background:#b63b3b}
-button{border:0;border-radius:12px;padding:12px 14px;background:#125a7a;color:#fff;font-weight:700;margin:3px}
-.secondary{background:#edf3f7;color:#125a7a}
-.wide{width:100%}
-input,textarea,select{width:100%;padding:13px;border:1px solid #d8e2eb;border-radius:12px;margin:6px 0 10px;font-size:16px}
-.search{margin:10px 0}
-nav{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #e5e9ef;display:flex;justify-content:space-around;padding:7px 3px calc(7px + env(safe-area-inset-bottom));z-index:30}
-nav button{background:none;color:#64748b;padding:3px;font-size:11px}
-nav button.active{color:#125a7a}
-nav span{display:block;font-size:22px}
-.cartbar{position:fixed;bottom:64px;left:12px;right:12px;background:#125a7a;color:#fff;border-radius:15px;padding:12px;z-index:29;display:none}
-.status{padding:10px;border-radius:12px;background:#fff7df;margin:8px 0}
-.steps div{padding:10px;border-bottom:1px solid #edf0f3}
-.done{color:#16804c;font-weight:bold}
-.hidden{display:none}
-.row{display:flex;justify-content:space-between;gap:8px;align-items:center}
-.pill{padding:4px 8px;border-radius:99px;background:#edf3f7;font-size:11px}
-.note{white-space:pre-wrap}
+
+*{
+  box-sizing:border-box
+}
+
+body{
+  margin:0;
+  font-family:Arial,sans-serif;
+  background:#f4f7fb;
+  color:#173042;
+  padding-bottom:82px
+}
+
+header{
+  position:sticky;
+  top:0;
+  z-index:20;
+  background:#fff;
+  padding:14px 16px;
+  border-bottom:1px solid #e5e9ef
+}
+
+.brand{
+  font-weight:800;
+  color:#125a7a;
+  font-size:25px
+}
+
+.sub,.small{
+  color:#64748b
+}
+
+.sub{
+  font-size:13px
+}
+
+.small{
+  font-size:12px
+}
+
+.page{
+  display:none;
+  max-width:760px;
+  margin:auto;
+  padding:12px
+}
+
+.page.active{
+  display:block
+}
+
+.card,.cat{
+  background:#fff;
+  border:1px solid #e4ebf1;
+  border-radius:18px;
+  padding:15px;
+  margin:10px 0
+}
+
+.hero{
+  background:linear-gradient(135deg,#125a7a,#2c8ca7);
+  color:#fff;
+  border-radius:22px;
+  padding:23px
+}
+
+.grid{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:10px
+}
+
+.cat{
+  margin:0;
+  min-height:115px;
+  cursor:pointer
+}
+
+.cat span{
+  font-size:30px
+}
+
+.cat b{
+  display:block;
+  margin-top:8px
+}
+
+.product{
+  display:flex;
+  gap:10px;
+  align-items:center
+}
+
+.pic{
+  width:55px;
+  height:55px;
+  border-radius:14px;
+  background:#e7f4f7;
+  display:grid;
+  place-items:center;
+  font-size:26px
+}
+
+.info{
+  flex:1
+}
+
+.price{
+  font-weight:800
+}
+
+.badge{
+  font-size:11px;
+  padding:4px 8px;
+  border-radius:99px;
+  background:#e7f6ed;
+  color:#16804c;
+  display:inline-block
+}
+
+.rx{
+  background:#fff3d6;
+  color:#986000
+}
+
+.warning{
+  background:#fff3cd;
+  border-color:#ffe08a;
+  color:#765500
+}
+
+.success{
+  background:#e8f7ef;
+  border-color:#b9e7cc;
+  color:#126a3f
+}
+
+.danger{
+  background:#b63b3b
+}
+
+button{
+  border:0;
+  border-radius:12px;
+  padding:12px 14px;
+  background:#125a7a;
+  color:#fff;
+  font-weight:700;
+  margin:3px
+}
+
+.secondary{
+  background:#edf3f7;
+  color:#125a7a
+}
+
+.wide{
+  width:100%
+}
+
+input,
+textarea,
+select{
+  width:100%;
+  padding:13px;
+  border:1px solid #d8e2eb;
+  border-radius:12px;
+  margin:6px 0 10px;
+  font-size:16px
+}
+
+.search{
+  margin:10px 0
+}
+
+nav{
+  position:fixed;
+  bottom:0;
+  left:0;
+  right:0;
+  background:#fff;
+  border-top:1px solid #e5e9ef;
+  display:flex;
+  justify-content:space-around;
+  padding:7px 3px calc(7px + env(safe-area-inset-bottom));
+  z-index:30
+}
+
+nav button{
+  background:none;
+  color:#64748b;
+  padding:3px;
+  font-size:11px
+}
+
+nav button.active{
+  color:#125a7a
+}
+
+nav span{
+  display:block;
+  font-size:22px
+}
+
+.cartbar{
+  position:fixed;
+  bottom:64px;
+  left:12px;
+  right:12px;
+  background:#125a7a;
+  color:#fff;
+  border-radius:15px;
+  padding:12px;
+  z-index:29;
+  display:none
+}
+
+.status{
+  padding:10px;
+  border-radius:12px;
+  background:#fff7df;
+  margin:8px 0
+}
+
+.steps div{
+  padding:10px;
+  border-bottom:1px solid #edf0f3
+}
+
+.done{
+  color:#16804c;
+  font-weight:bold
+}
+
+.hidden{
+  display:none
+}
+
+.row{
+  display:flex;
+  justify-content:space-between;
+  gap:8px;
+  align-items:center
+}
+
+.pill{
+  padding:4px 8px;
+  border-radius:99px;
+  background:#edf3f7;
+  font-size:11px
+}
+
+.note{
+  white-space:pre-wrap
+}
+
 </style>
 </head>
 
 <body>
 
 <header>
-<div class="brand">💊 SKMedKART</div>
-<div class="sub">Sri Krishna Medicals • Pennagaram</div>
+  <div class="brand">💊 SKMedKART</div>
+  <div class="sub">Sri Krishna Medicals • Pennagaram</div>
 </header>
 
-<div id="cartbar" class="cartbar" onclick="page('cart')">
-🛒 <span id="cartsum"></span> • View Cart
+<div id="cartbar"
+class="cartbar"
+onclick="page('cart')">
+
+  🛒 <span id="cartsum"></span> • View Cart
+
 </div>
+
+
+<!-- HOME -->
 
 <section id="home" class="page active">
 
-<div id="backendNotice" class="card warning hidden"></div>
+  <div id="backendNotice"
+  class="card warning hidden"></div>
 
-<div class="hero">
-<h2>Online Pharmacy & Health Store</h2>
-<p>Human Medicines, Veterinary Care, Cosmetics & Health Products.</p>
-<button class="secondary" onclick="page('login')">👤 Login / Register</button>
-</div>
+  <div class="hero">
 
-<input class="search" id="search" oninput="renderProducts()" placeholder="🔍 Search medicines or products">
+    <h2>Online Pharmacy & Health Store</h2>
 
-<h3>Shop by Category</h3>
+    <p>
+      Human Medicines, Veterinary Care,
+      Cosmetics & Health Products.
+    </p>
 
-<div class="grid">
+    <button class="secondary"
+    onclick="page('login')">
+      👤 Login / Register
+    </button>
 
-<div class="cat" onclick="filterCat('Human Medicines')">
-<span>💊</span>
-<b>Human Medicines</b>
-</div>
+  </div>
 
-<div class="cat" onclick="filterCat('Veterinary')">
-<span>🐾</span>
-<b>Veterinary Medicines</b>
-</div>
+  <input
+  class="search"
+  id="search"
+  oninput="renderProducts()"
+  placeholder="🔍 Search medicines or products">
 
-<div class="cat" onclick="filterCat('Cosmetics')">
-<span>💄</span>
-<b>Cosmetics & Beauty</b>
-</div>
+  <h3>Shop by Category</h3>
 
-<div class="cat" onclick="filterCat('Health')">
-<span>🩺</span>
-<b>Health & Wellness</b>
-</div>
+  <div class="grid">
 
-<div class="cat" onclick="filterCat('Baby Care')">
-<span>👶</span>
-<b>Baby Care</b>
-</div>
+    <div class="cat"
+    onclick="filterCat('Human Medicines')">
 
-<div class="cat" onclick="filterCat('Devices')">
-<span>🩹</span>
-<b>Medical Devices</b>
-</div>
+      <span>💊</span>
+      <b>Human Medicines</b>
 
-</div>
+    </div>
 
-<h3>Popular Products</h3>
-<div id="products"></div>
+    <div class="cat"
+    onclick="filterCat('Veterinary')">
+
+      <span>🐾</span>
+      <b>Veterinary Medicines</b>
+
+    </div>
+
+    <div class="cat"
+    onclick="filterCat('Cosmetics')">
+
+      <span>💄</span>
+      <b>Cosmetics & Beauty</b>
+
+    </div>
+
+    <div class="cat"
+    onclick="filterCat('Health')">
+
+      <span>🩺</span>
+      <b>Health & Wellness</b>
+
+    </div>
+
+    <div class="cat"
+    onclick="filterCat('Baby Care')">
+
+      <span>👶</span>
+      <b>Baby Care</b>
+
+    </div>
+
+    <div class="cat"
+    onclick="filterCat('Devices')">
+
+      <span>🩹</span>
+      <b>Medical Devices</b>
+
+    </div>
+
+  </div>
+
+  <h3>Popular Products</h3>
+
+  <div id="products"></div>
 
 </section>
+
+
+<!-- CATALOGUE -->
 
 <section id="catalogue" class="page">
 
-<button class="secondary" onclick="page('home')">← Home</button>
+  <button class="secondary"
+  onclick="page('home')">
+    ← Home
+  </button>
 
-<h2 id="catTitle">Catalogue</h2>
+  <h2 id="catTitle">Catalogue</h2>
 
-<input class="search" id="catSearch" oninput="renderProducts()" placeholder="Search products">
+  <input
+  class="search"
+  id="catSearch"
+  oninput="renderProducts()"
+  placeholder="Search products">
 
-<div id="catalogueProducts"></div>
+  <div id="catalogueProducts"></div>
 
 </section>
+
+
+<!-- CART -->
 
 <section id="cart" class="page">
 
-<h2>🛒 My Cart</h2>
+  <h2>🛒 My Cart</h2>
 
-<div id="cartitems"></div>
+  <div id="cartitems"></div>
 
-<div id="emptycart" class="card small">
-Your cart is empty.
-</div>
+  <div id="emptycart"
+  class="card small">
 
-<div class="card">
-<b>Total: ₹<span id="total">0</span></b>
-<br>
-<button class="wide" type="button" onclick="goToCheckout()">
-Proceed to Checkout
-</button>
-</div>
+    Your cart is empty.
+
+  </div>
+
+  <div class="card">
+
+    <b>
+      Total: ₹<span id="total">0</span>
+    </b>
+
+    <br>
+
+    <button
+    class="wide"
+    type="button"
+    onclick="goToCheckout()">
+
+      Proceed to Checkout
+
+    </button>
+
+  </div>
 
 </section>
+
+
+<!-- LOGIN -->
 
 <section id="login" class="page">
 
-<h2>👤 Customer Login / Register</h2>
+  <h2>👤 Customer Login / Register</h2>
 
-<div class="card">
+  <div class="card">
 
-<p class="small">
-Enter your details. This saves your profile, address and order history on this device.
-Real multi-device login can be added with Firebase Authentication.
-</p>
+    <p class="small">
 
-<input id="loginName" placeholder="Your Name">
+      Enter your details. This saves your profile,
+      address and order history on this device.
+      Real multi-device login can be added with
+      Firebase Authentication.
 
-<input
-id="loginPhone"
-inputmode="numeric"
-maxlength="10"
-placeholder="10-digit Mobile Number"
->
+    </p>
 
-<button class="wide" onclick="customerLogin()">Continue</button>
+    <input
+    id="loginName"
+    placeholder="Your Name">
 
-</div>
+    <input
+    id="loginPhone"
+    inputmode="numeric"
+    maxlength="10"
+    placeholder="10-digit Mobile Number">
+
+    <button
+    class="wide"
+    onclick="customerLogin()">
+
+      Continue
+
+    </button>
+
+  </div>
 
 </section>
+
+
+<!-- CHECKOUT -->
 
 <section id="checkout" class="page">
 
-<h2>Checkout</h2>
+  <h2>Checkout</h2>
 
-<div class="card">
+  <div class="card">
 
-<h3>1. Delivery Details</h3>
+    <h3>1. Delivery Details</h3>
 
-<input id="name" placeholder="Customer Name">
+    <input
+    id="name"
+    placeholder="Customer Name">
 
-<input id="phone" inputmode="numeric" placeholder="Mobile Number">
+    <input
+    id="phone"
+    inputmode="numeric"
+    placeholder="Mobile Number">
 
-<select id="delivery">
-<option>Home Delivery</option>
-<option>Store Pickup</option>
-</select>
+    <select id="delivery">
 
-<textarea id="address" placeholder="Full Delivery Address"></textarea>
+      <option>Home Delivery</option>
 
-</div>
+      <option>Store Pickup</option>
 
-<div class="card">
+    </select>
 
-<h3>2. Upload Prescription</h3>
+    <textarea
+    id="address"
+    placeholder="Full Delivery Address"></textarea>
 
-<p class="small">
-Prescription-required medicines will be held until the pharmacist verifies and approves the prescription.
-</p>
+  </div>
 
-<input id="rxfile" type="file" accept="image/*,.pdf">
 
-<input id="doctor" placeholder="Doctor Name (optional)">
+  <div class="card">
 
-</div>
+    <h3>2. Upload Prescription</h3>
 
-<div class="card">
+    <p class="small">
 
-<h3>3. Payment</h3>
+      Prescription-required medicines will be held
+      until the pharmacist verifies and approves
+      the prescription.
 
-<select id="pay">
-<option value="COD">Cash on Delivery</option>
-<option value="UPI_AFTER_CONFIRM">UPI after pharmacist confirmation</option>
-<option value="ONLINE_AFTER_CONFIRM">Online payment after confirmation</option>
-</select>
+    </p>
 
-<button class="wide" onclick="placeOrder()">Place Order</button>
+    <input
+    id="rxfile"
+    type="file"
+    accept="image/*,.pdf">
 
-</div>
+    <input
+    id="doctor"
+    placeholder="Doctor Name (optional)">
+
+  </div>
+
+
+  <div class="card">
+
+    <h3>3. Payment</h3>
+
+    <select id="pay">
+
+      <option value="COD">
+        Cash on Delivery
+      </option>
+
+      <option value="UPI_AFTER_CONFIRM">
+        UPI after pharmacist confirmation
+      </option>
+
+      <option value="ONLINE_AFTER_CONFIRM">
+        Online payment after confirmation
+      </option>
+
+    </select>
+
+    <button
+    class="wide"
+    onclick="placeOrder()">
+
+      Place Order
+
+    </button>
+
+  </div>
 
 </section>
+
+
+<!-- ORDERS -->
 
 <section id="orders" class="page">
 
-<h2>📦 My Orders</h2>
+  <h2>📦 My Orders</h2>
 
-<div id="ordersList"></div>
+  <div id="ordersList"></div>
 
 </section>
+
+
+<!-- ACCOUNT -->
 
 <section id="account" class="page">
 
-<h2>👤 My Account</h2>
+  <h2>👤 My Account</h2>
 
-<div id="accountBox" class="card"></div>
+  <div
+  id="accountBox"
+  class="card"></div>
 
-<button class="secondary" onclick="logout()">Logout</button>
+  <button
+  class="secondary"
+  onclick="logout()">
 
-<div class="card">
+    Logout
 
-<h3>📱 Install App</h3>
+  </button>
 
-<p class="small">
-Install SKMedKART on your phone for quick access.
-</p>
 
-<button id="installBtn" class="hidden" onclick="installApp()">
-Install SKMedKART
-</button>
+  <!-- PWA INSTALL -->
 
-<p class="small">
-If the button does not appear, open Chrome menu ⋮ and choose
-<strong>Install app</strong> or <strong>Add to Home screen</strong>.
-</p>
+  <div class="card">
 
-</div>
+    <h3>📱 Install SKMedKART App</h3>
+
+    <p class="small">
+
+      Install SKMedKART as a full-screen app
+      on your Android phone.
+
+    </p>
+
+    <button
+    id="installBtn"
+    class="wide hidden"
+    onclick="installApp()">
+
+      Install SKMedKART App
+
+    </button>
+
+    <p
+    id="installHelp"
+    class="small">
+
+      If the Install button does not appear,
+      open Chrome menu ⋮ and choose
+      <strong>Install app</strong>.
+
+    </p>
+
+  </div>
 
 </section>
 
+
+<!-- BOTTOM NAV -->
+
 <nav>
 
-<button onclick="page('home')">
-<span>🏠</span>Home
-</button>
+  <button onclick="page('home')">
 
-<button onclick="page('catalogue')">
-<span>🔍</span>Search
-</button>
+    <span>🏠</span>
+    Home
 
-<button onclick="page('cart')">
-<span>🛒</span>Cart
-</button>
+  </button>
 
-<button onclick="page('orders')">
-<span>📦</span>Orders
-</button>
+  <button onclick="page('catalogue')">
 
-<button onclick="page('account')">
-<span>👤</span>Account
-</button>
+    <span>🔍</span>
+    Search
+
+  </button>
+
+  <button onclick="page('cart')">
+
+    <span>🛒</span>
+    Cart
+
+  </button>
+
+  <button onclick="page('orders')">
+
+    <span>📦</span>
+    Orders
+
+  </button>
+
+  <button onclick="page('account')">
+
+    <span>👤</span>
+    Account
+
+  </button>
 
 </nav>
 
+
+<!-- FIREBASE -->
+
 <script src="firebase-config.js"></script>
+
+
+<!-- MAIN APP -->
+
 <script type="module" src="app.js"></script>
 
+
+<!-- PWA SERVICE WORKER + INSTALL -->
+
+<script>
+
+let deferredPrompt = null;
+
+const installBtn = document.getElementById("installBtn");
+const installHelp = document.getElementById("installHelp");
+
+
+/* REGISTER SERVICE WORKER */
+
+if ("serviceWorker" in navigator) {
+
+  window.addEventListener("load", () => {
+
+    navigator.serviceWorker
+      .register("./service-worker.js")
+      .then((registration) => {
+
+        console.log(
+          "SKMedKART Service Worker registered:",
+          registration.scope
+        );
+
+      })
+      .catch((error) => {
+
+        console.error(
+          "Service Worker registration failed:",
+          error
+        );
+
+      });
+
+  });
+
+}
+
+
+/* CAPTURE INSTALL PROMPT */
+
+window.addEventListener(
+  "beforeinstallprompt",
+  (event) => {
+
+    event.preventDefault();
+
+    deferredPrompt = event;
+
+    if (installBtn) {
+      installBtn.classList.remove("hidden");
+    }
+
+    if (installHelp) {
+      installHelp.textContent =
+        "Tap the button above to install SKMedKART as an app.";
+    }
+
+  }
+);
+
+
+/* INSTALL APP */
+
+window.installApp = async function () {
+
+  if (!deferredPrompt) {
+
+    alert(
+      "Install option is not ready yet. Please refresh the page once and wait a few seconds. Then try again."
+    );
+
+    return;
+
+  }
+
+  deferredPrompt.prompt();
+
+  const choiceResult =
+    await deferredPrompt.userChoice;
+
+  console.log(
+    "Install choice:",
+    choiceResult.outcome
+  );
+
+  deferredPrompt = null;
+
+  if (installBtn) {
+    installBtn.classList.add("hidden");
+  }
+
+};
+
+
+/* AFTER APP INSTALLED */
+
+window.addEventListener(
+  "appinstalled",
+  () => {
+
+    console.log(
+      "SKMedKART installed successfully"
+    );
+
+    deferredPrompt = null;
+
+    if (installBtn) {
+      installBtn.classList.add("hidden");
+    }
+
+    if (installHelp) {
+      installHelp.textContent =
+        "SKMedKART is installed on this device.";
+    }
+
+  }
+);
+
+</script>
+
 </body>
-  </html>
+      </html>
