@@ -5,8 +5,15 @@ import { getStorage, ref, uploadBytes, getDownloadURL } from 'https://www.gstati
 const K='skm_v10_';
 const cfg=window.SKMED_FIREBASE_CONFIG||{};
 const configured=!!(cfg.projectId&&!String(cfg.projectId).startsWith('PASTE_'));
-let db=null,storage=null,unsubOrders=null,unsubProducts=null,liveOrders=[],products=[],currentCat='All',deferredPrompt=null;
-if(configured){const app=initializeApp(cfg);db=getFirestore(app);storage=getStorage(app)}
+
+let db=null,storage=null,unsubOrders=null,unsubProducts=null;
+let liveOrders=[],products=[],currentCat='All',deferredPrompt=null;
+
+if(configured){
+ const app=initializeApp(cfg);
+ db=getFirestore(app);
+ storage=getStorage(app);
+}
 
 const seed=[
  {id:'demo_dolo650',name:'Dolo 650 Tablet',cat:'Human Medicines',price:30,rx:false,icon:'💊',stock:50,active:true},
@@ -15,8 +22,11 @@ const seed=[
 ];
 
 const get=(k,d)=>{
- try{return JSON.parse(localStorage.getItem(K+k)||JSON.stringify(d))}
- catch{return d}
+ try{
+  return JSON.parse(localStorage.getItem(K+k)||JSON.stringify(d));
+ }catch{
+  return d;
+ }
 };
 
 const set=(k,v)=>localStorage.setItem(K+k,JSON.stringify(v));
@@ -33,13 +43,15 @@ const ts=v=>v?.toDate?v.toDate().getTime():new Date(v||0).getTime();
 
 const normCat=v=>{
  const s=String(v||'').trim().toLowerCase();
+
  if(['human medicines','human medicine','medicine','medicines'].includes(s))return 'Human Medicines';
  if(['veterinary','veterinary medicines','vet'].includes(s))return 'Veterinary';
  if(['cosmetics','cosmetic','beauty'].includes(s))return 'Cosmetics';
  if(['health','health & wellness','health and wellness'].includes(s))return 'Health';
  if(['baby care','baby'].includes(s))return 'Baby Care';
  if(['devices','medical devices','device'].includes(s))return 'Devices';
- return String(v||'').trim()
+
+ return String(v||'').trim();
 };
 
 const normalizeProduct=(d,id)=>({
@@ -57,65 +69,91 @@ const normalizeProduct=(d,id)=>({
 
 function initLocalProducts(){
  let p=get('products',null);
+
  if(!Array.isArray(p)){
   p=seed;
-  set('products',p)
+  set('products',p);
  }
- products=p.filter(x=>x.active!==false)
+
+ products=p.filter(x=>x.active!==false);
 }
 
 function showNotice(msg,type='warning'){
  const n=document.getElementById('backendNotice');
+
  if(!n)return;
+
  if(!msg){
   n.classList.add('hidden');
-  return
+  return;
  }
+
  n.classList.remove('hidden');
  n.className='card '+type;
- n.innerHTML=msg
+ n.innerHTML=msg;
 }
 
 function initProductSync(){
  if(!configured){
   initLocalProducts();
   renderProducts();
-  showNotice('<b>📱 Test mode</b><br><span class="small">Firebase is not configured.</span>');
-  return
+
+  showNotice(
+   '<b>📱 Test mode</b><br><span class="small">Firebase is not configured.</span>'
+  );
+
+  return;
  }
 
  if(unsubProducts)unsubProducts();
 
- unsubProducts=onSnapshot(collection(db,'products'),s=>{
-  products=s.docs.map(d=>normalizeProduct(d.data(),d.id)).filter(p=>p.active!==false);
-  renderProducts();
-  showNotice('');
- },e=>{
-  products=[];
-  renderProducts();
-  showNotice('<b>⚠️ Products could not be loaded from Firebase.</b><br><span class="small">'+esc(e.message||'Check Firestore rules.')+'</span>');
-  console.error(e);
- });
+ unsubProducts=onSnapshot(
+  collection(db,'products'),
+  s=>{
+   products=s.docs
+    .map(d=>normalizeProduct(d.data(),d.id))
+    .filter(p=>p.active!==false);
+
+   renderProducts();
+   showNotice('');
+  },
+  e=>{
+   products=[];
+   renderProducts();
+
+   showNotice(
+    '<b>⚠️ Products could not be loaded from Firebase.</b><br><span class="small">'+
+    esc(e.message||'Check Firestore rules.')+
+    '</span>'
+   );
+
+   console.error(e);
+  }
+ );
 }
 
 async function loadProducts(){
- if(configured)initProductSync();
- else initProductSync()
+ initProductSync();
 }
 
 function getProduct(id){
- return products.find(p=>p.id===id)
+ return products.find(p=>p.id===id);
 }
 
 window.page=id=>{
- document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));
+ document.querySelectorAll('.page').forEach(
+  x=>x.classList.remove('active')
+ );
+
  const el=document.getElementById(id);
+
  if(!el)return;
+
  el.classList.add('active');
 
  if(id==='home'){
   currentCat='All';
-  renderProducts()
+  renderProducts();
  }
 
  if(id==='catalogue')renderProducts();
@@ -123,13 +161,16 @@ window.page=id=>{
  if(id==='orders')startOrders();
  if(id==='account')renderAccount();
 
- window.scrollTo(0,0)
+ window.scrollTo(0,0);
 };
 
 window.filterCat=c=>{
  currentCat=normCat(c);
- document.getElementById('catTitle').textContent=currentCat+' Catalogue';
- page('catalogue')
+
+ document.getElementById('catTitle').textContent=
+  currentCat+' Catalogue';
+
+ page('catalogue');
 };
 
 window.renderProducts=()=>{
@@ -147,16 +188,31 @@ window.renderProducts=()=>{
  const html=arr.map(p=>`
   <div class="card product">
    <div class="pic">${esc(p.icon||'💊')}</div>
+
    <div class="info">
     <b>${esc(p.name)}</b>
-    <div class="small">${esc(normCat(p.cat))}</div>
+
+    <div class="small">
+     ${esc(normCat(p.cat))}
+    </div>
+
     ${p.rx?'<span class="badge rx">Prescription required</span>':''}
-    <div class="price">${Number(p.price)>0?'₹'+Number(p.price):'Price on confirmation'}</div>
-    <div class="small">In stock: ${Number(p.stock||0)}</div>
+
+    <div class="price">
+     ${Number(p.price)>0?'₹'+Number(p.price):'Price on confirmation'}
+    </div>
+
+    <div class="small">
+     In stock: ${Number(p.stock||0)}
+    </div>
    </div>
-   <button onclick="addCart('${esc(p.id)}')">Add</button>
+
+   <button onclick="addCart('${esc(p.id)}')">
+    Add
+   </button>
   </div>
- `).join('')||'<div class="card small">No products available in this category right now.</div>';
+ `).join('')||
+ '<div class="card small">No products available in this category right now.</div>';
 
  const home=document.getElementById('products');
  const cat=document.getElementById('catalogueProducts');
@@ -166,19 +222,19 @@ window.renderProducts=()=>{
 };
 
 function cart(){
- return get('cart',[])
+ return get('cart',[]);
 }
 
 function saveCart(c){
  set('cart',c);
- updateCartBar()
+ updateCartBar();
 }
 
 window.addCart=id=>{
  const p=getProduct(id);
 
  if(!p||Number(p.stock||0)<=0){
-  return alert('This product is currently unavailable.')
+  return alert('This product is currently unavailable.');
  }
 
  let c=cart();
@@ -186,9 +242,10 @@ window.addCart=id=>{
 
  if(x){
   if(x.qty>=Number(p.stock)){
-   return alert('Only '+p.stock+' available.')
+   return alert('Only '+p.stock+' available.');
   }
-  x.qty++
+
+  x.qty++;
  }else{
   c.push({
    id:p.id,
@@ -198,7 +255,7 @@ window.addCart=id=>{
    rx:!!p.rx,
    icon:p.icon,
    qty:1
-  })
+  });
  }
 
  saveCart(c);
@@ -213,19 +270,30 @@ window.renderCart=()=>{
   <div class="card row">
    <div>
     <b>${esc(x.name)}</b>
-    <div class="small">₹${x.price||'On confirmation'} × ${x.qty}</div>
+
+    <div class="small">
+     ₹${x.price||'On confirmation'} × ${x.qty}
+    </div>
    </div>
+
    <div>
     <button class="secondary" onclick="changeQty(${i},-1)">−</button>
+
     <b>${x.qty}</b>
+
     <button class="secondary" onclick="changeQty(${i},1)">+</button>
-    <button class="danger" onclick="removeCart(${i})">Remove</button>
+
+    <button class="danger" onclick="removeCart(${i})">
+     Remove
+    </button>
    </div>
   </div>
  `).join('');
 
- document.getElementById('emptycart').style.display=c.length?'none':'block';
- document.getElementById('total').textContent=total(c)
+ document.getElementById('emptycart').style.display=
+  c.length?'none':'block';
+
+ document.getElementById('total').textContent=total(c);
 };
 
 window.changeQty=(i,d)=>{
@@ -238,17 +306,23 @@ window.changeQty=(i,d)=>{
  if(c[i].qty<1)c.splice(i,1);
 
  saveCart(c);
- renderCart()
+ renderCart();
 };
 
 window.removeCart=i=>{
  let c=cart();
+
  c.splice(i,1);
+
  saveCart(c);
- renderCart()
+ renderCart();
 };
 
-const total=c=>c.reduce((s,x)=>s+(Number(x.price)||0)*Number(x.qty||0),0);
+const total=c=>
+ c.reduce(
+  (s,x)=>s+(Number(x.price)||0)*Number(x.qty||0),
+  0
+ );
 
 function updateCartBar(){
  let c=cart();
@@ -258,13 +332,15 @@ function updateCartBar(){
 
  if(!c.length){
   b.style.display='none';
-  return
+  return;
  }
 
  b.style.display='block';
 
  document.getElementById('cartsum').textContent=
-  c.reduce((s,x)=>s+x.qty,0)+' item(s) • ₹'+total(c)
+  c.reduce((s,x)=>s+x.qty,0)+
+  ' item(s) • ₹'+
+  total(c);
 }
 
 window.customerLogin=()=>{
@@ -272,54 +348,77 @@ window.customerLogin=()=>{
  let p=document.getElementById('loginPhone').value.trim();
 
  if(!n||!/^[0-9]{10}$/.test(p)){
-  return alert('Enter your name and valid 10-digit mobile number.')
+  return alert(
+   'Enter your name and valid 10-digit mobile number.'
+  );
  }
 
- set('user',{name:n,phone:p});
- page('home')
+ set('user',{
+  name:n,
+  phone:p
+ });
+
+ page('home');
 };
 
 window.goToCheckout=()=>{
- if(!cart().length)return alert('Your cart is empty.');
+ if(!cart().length){
+  return alert('Your cart is empty.');
+ }
 
  let u=get('user',null);
 
  if(!u){
   alert('Please Login / Register first.');
   page('login');
-  return
+  return;
  }
 
  document.getElementById('name').value=u.name||'';
  document.getElementById('phone').value=u.phone||'';
 
- page('checkout')
+ page('checkout');
 };
 
-const withTimeout=(promise,ms,label)=>Promise.race([
- promise,
- new Promise((_,reject)=>
-  setTimeout(
-   ()=>reject(new Error(label+' timed out. Please check your internet/Firebase settings and try again.')),
-   ms
+const withTimeout=(promise,ms,label)=>
+ Promise.race([
+  promise,
+
+  new Promise(
+   (_,reject)=>
+    setTimeout(
+     ()=>reject(
+      new Error(
+       label+
+       ' timed out. Please check your internet/Firebase settings and try again.'
+      )
+     ),
+     ms
+    )
   )
- )
-]);
+ ]);
 
 async function uploadRx(file,phone){
  if(!file)return null;
 
- if(!configured)return {
-  name:file.name,
-  url:null,
-  local:true
- };
-
- if(!storage){
-  throw new Error('Firebase Storage is not initialized.')
+ if(!configured){
+  return {
+   name:file.name,
+   url:null,
+   local:true
+  };
  }
 
- const safe=file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
+ if(!storage){
+  throw new Error(
+   'Firebase Storage is not initialized.'
+  );
+ }
+
+ const safe=file.name.replace(
+  /[^a-zA-Z0-9._-]/g,
+  '_'
+ );
 
  const r=ref(
   storage,
@@ -328,12 +427,20 @@ async function uploadRx(file,phone){
 
  try{
   await uploadBytes(r,file);
+
   const url=await getDownloadURL(r);
-  return {name:file.name,url}
+
+  return {
+   name:file.name,
+   url:url
+  };
+
  }catch(e){
+
   throw new Error(
-   'Prescription upload failed: '+(e?.message||e)
-  )
+   'Prescription upload failed: '+
+   (e?.message||e)
+  );
  }
 }
 
@@ -342,6 +449,7 @@ async function createOnlineOrderAtomically(items,o){
 
  await withTimeout(
   runTransaction(db,async tx=>{
+
    const productRefs=items.map(x=>({
     x,
     r:doc(db,'products',x.id)
@@ -353,66 +461,101 @@ async function createOnlineOrderAtomically(items,o){
     snaps.push({
      item,
      snap:await tx.get(item.r)
-    })
-   }
-
-   for(const {item,snap} of snaps){
-    const x=item.x;
-
-    if(!snap.exists()){
-     throw new Error(x.name+' is unavailable.')
-    }
-
-    const p=normalizeProduct(snap.data(),snap.id);
-
-    if(Number(p.stock)<Number(x.qty)){
-     throw new Error('Insufficient stock for '+x.name)
-    }
-   }
-
-   for(const {item,snap} of snaps){
-    const x=item.x;
-    const p=normalizeProduct(snap.data(),snap.id);
-
-    tx.update(item.r,{
-     stock:Number(p.stock)-Number(x.qty),
-     updatedAt:serverTimestamp()
     });
    }
 
+   for(const {item,snap} of snaps){
+
+    const x=item.x;
+
+    if(!snap.exists()){
+     throw new Error(
+      x.name+' is unavailable.'
+     );
+    }
+
+    const p=normalizeProduct(
+     snap.data(),
+     snap.id
+    );
+
+    if(Number(p.stock)<Number(x.qty)){
+     throw new Error(
+      'Insufficient stock for '+x.name
+     );
+    }
+   }
+
+   for(const {item,snap} of snaps){
+
+    const x=item.x;
+
+    const p=normalizeProduct(
+     snap.data(),
+     snap.id
+    );
+
+    tx.update(
+     item.r,
+     {
+      stock:Number(p.stock)-Number(x.qty),
+      updatedAt:serverTimestamp()
+     }
+    );
+   }
+
    tx.set(orderRef,o);
+
   }),
   30000,
   'Order submission'
  );
 
- return orderRef.id
+ return orderRef.id;
 }
 
 window.placeOrder=async()=>{
+
  const c=cart();
 
- const nameV=document.getElementById('name').value.trim();
- const phoneV=document.getElementById('phone').value.trim();
- const addressV=document.getElementById('address').value.trim();
- const deliveryV=document.getElementById('delivery').value;
- const payV=document.getElementById('pay').value;
+ const nameV=
+  document.getElementById('name').value.trim();
 
- if(!c.length)return alert('Cart is empty.');
+ const phoneV=
+  document.getElementById('phone').value.trim();
+
+ const addressV=
+  document.getElementById('address').value.trim();
+
+ const deliveryV=
+  document.getElementById('delivery').value;
+
+ const payV=
+  document.getElementById('pay').value;
+
+ if(!c.length){
+  return alert('Cart is empty.');
+ }
 
  if(
   !nameV||
   !/^[0-9]{10}$/.test(phoneV)||
   (!addressV&&deliveryV==='Home Delivery')
  ){
-  return alert('Please complete name, valid mobile number and delivery address.')
+  return alert(
+   'Please complete name, valid mobile number and delivery address.'
+  );
  }
 
  const needsRx=c.some(x=>x.rx);
- const file=document.getElementById('rxfile').files[0];
+
+ const file=
+  document.getElementById('rxfile').files[0];
 
  if(needsRx&&!file){
-  return alert('Please upload the prescription for prescription-required medicine.')
+  return alert(
+   'Please upload the prescription for prescription-required medicine.'
+  );
  }
 
  const active=document.activeElement;
@@ -420,35 +563,58 @@ window.placeOrder=async()=>{
  const btn=
   active?.tagName==='BUTTON'
    ?active
-   :document.querySelector('button[onclick*="placeOrder"]');
+   :document.querySelector(
+      'button[onclick*="placeOrder"]'
+     );
 
- const oldText=btn?.textContent||'Place Order';
+ const oldText=
+  btn?.textContent||'Place Order';
 
  try{
+
   if(btn){
    btn.disabled=true;
-   btn.textContent=needsRx
-    ?'Uploading Prescription...'
-    :'Placing Order...'
+
+   btn.textContent=
+    needsRx
+     ?'Uploading Prescription...'
+     :'Placing Order...';
   }
 
   let rx=null;
 
+  /*
+   PRESCRIPTION AUTO UPLOAD
+   Firebase Storage-ல் automatic upload ஆகும்.
+   Share screen வராது.
+  */
   if(needsRx&&file){
-   rx={
-    name:file.name,
-    whatsapp:true
-   };
+
+   rx=await uploadRx(
+    file,
+    phoneV
+   );
+
+   if(!rx||!rx.url){
+    throw new Error(
+     'Prescription image could not be uploaded. Please check Firebase Storage configuration.'
+    );
+   }
   }
 
-  if(btn)btn.textContent='Submitting Order...';
+  if(btn){
+   btn.textContent='Submitting Order...';
+  }
 
-  const status=needsRx
-   ?'Prescription Under Pharmacist Review'
-   :'Order Placed';
+  const status=
+   needsRx
+    ?'Prescription Under Pharmacist Review'
+    :'Order Placed';
 
   const o={
-   orderNumber:'SKM'+Date.now(),
+
+   orderNumber:
+    'SKM'+Date.now(),
 
    customer:{
     name:nameV,
@@ -458,28 +624,34 @@ window.placeOrder=async()=>{
    },
 
    payment:payV,
+
    paymentStatus:'Pending',
 
    items:c,
+
    total:total(c),
 
    status,
+
    needsRx,
 
    prescription:{
     ...(rx||{}),
-    doctor:document.getElementById('doctor').value.trim()
+    doctor:
+     document.getElementById('doctor').value.trim()
    },
 
    pharmacistNote:'',
 
-   createdAt:configured
-    ?serverTimestamp()
-    :new Date().toISOString(),
+   createdAt:
+    configured
+     ?serverTimestamp()
+     :new Date().toISOString(),
 
-   updatedAt:configured
-    ?serverTimestamp()
-    :new Date().toISOString(),
+   updatedAt:
+    configured
+     ?serverTimestamp()
+     :new Date().toISOString(),
 
    timeline:[
     {
@@ -491,27 +663,50 @@ window.placeOrder=async()=>{
   };
 
   if(configured){
-   o.id=await createOnlineOrderAtomically(c,o);
+
+   o.id=await createOnlineOrderAtomically(
+    c,
+    o
+   );
+
   }else{
+
    const id='LOCAL_'+Date.now();
+
    o.id=id;
 
    const arr=get('orders',[]);
+
    arr.unshift(o);
+
    set('orders',arr);
   }
 
   set('cart',[]);
-  set('user',{
-   name:nameV,
-   phone:phoneV
-  });
+
+  set(
+   'user',
+   {
+    name:nameV,
+    phone:phoneV
+   }
+  );
 
   updateCartBar();
 
-  const orderItems=c.map(x=>
-   `• ${x.name} × ${x.qty}`
-  ).join('\n');
+  const orderItems=
+   c.map(
+    x=>`• ${x.name} × ${x.qty}`
+   ).join('\n');
+
+  let prescriptionMessage='';
+
+  if(needsRx&&rx?.url){
+
+   prescriptionMessage=
+`\n\n📋 *Prescription Image:*
+${rx.url}`;
+  }
 
   const message=
 `🛒 *New SKMedKART Order*
@@ -527,23 +722,35 @@ window.placeOrder=async()=>{
 📦 *Order Items:*
 ${orderItems}
 
-💰 *Total: ₹${total(c)}*
-${needsRx?'\n📋 *Prescription medicine included. Prescription details are available in the order.*':''}`;
+💰 *Total: ₹${total(c)}*${prescriptionMessage}`;
+
+  /*
+   DIRECT WHATSAPP OPEN
+   Contact search/select screen வராது.
+  */
+
+  const whatsappUrl=
+   'https://wa.me/918300363317?text='+
+   encodeURIComponent(message);
 
   window.open(
-   'https://wa.me/918300363317?text='+encodeURIComponent(message),
+   whatsappUrl,
    '_blank'
   );
 
   alert(
-   'Order placed successfully. Order ID: '+o.orderNumber
+   'Order placed successfully. Order ID: '+
+   o.orderNumber
   );
 
   page('orders');
 
  }catch(e){
 
-  console.error('SKMedKART order error:',e);
+  console.error(
+   'SKMedKART order error:',
+   e
+  );
 
   alert(
    'Order could not be submitted. '+
@@ -554,57 +761,84 @@ ${needsRx?'\n📋 *Prescription medicine included. Prescription details are avai
 
   if(btn){
    btn.disabled=false;
-   btn.textContent=oldText
+   btn.textContent=oldText;
   }
  }
 };
 
 function startOrders(){
+
  let u=get('user',null);
 
  if(!u){
   renderOrders([]);
-  return
+  return;
  }
 
  if(!configured){
+
   renderOrders(
    get('orders',[])
-    .filter(o=>o.customer?.phone===u.phone)
-    .sort((a,b)=>ts(b.createdAt)-ts(a.createdAt))
+    .filter(
+     o=>o.customer?.phone===u.phone
+    )
+    .sort(
+     (a,b)=>
+      ts(b.createdAt)-ts(a.createdAt)
+    )
   );
-  return
+
+  return;
  }
 
  if(unsubOrders)unsubOrders();
 
  unsubOrders=onSnapshot(
+
   query(
    collection(db,'orders'),
-   where('customer.phone','==',u.phone)
+   where(
+    'customer.phone',
+    '==',
+    u.phone
+   )
   ),
-  s=>{
-   liveOrders=s.docs
-    .map(d=>({
-     id:d.id,
-     ...d.data()
-    }))
-    .sort((a,b)=>ts(b.createdAt)-ts(a.createdAt));
 
-   renderOrders(liveOrders)
+  s=>{
+
+   liveOrders=s.docs
+    .map(
+     d=>({
+      id:d.id,
+      ...d.data()
+     })
+    )
+    .sort(
+     (a,b)=>
+      ts(b.createdAt)-ts(a.createdAt)
+    );
+
+   renderOrders(liveOrders);
+
   },
+
   e=>{
+
    console.error(e);
 
    document.getElementById('ordersList').innerHTML=
     '<div class="card warning">Unable to load orders: '+
-    esc(e.message||'Check Firebase rules.')+
-    '</div>'
+    esc(
+     e.message||
+     'Check Firebase rules.'
+    )+
+    '</div>';
   }
- )
+ );
 }
 
 function renderOrders(arr){
+
  let rank=[
   'Order Placed',
   'Prescription Under Pharmacist Review',
@@ -616,9 +850,14 @@ function renderOrders(arr){
  ];
 
  document.getElementById('ordersList').innerHTML=
+
   arr.map(o=>`
+
    <div class="card">
-    <b>${esc(o.orderNumber||o.id)}</b>
+
+    <b>
+     ${esc(o.orderNumber||o.id)}
+    </b>
 
     <div class="status">
      <b>${esc(o.status)}</b>
@@ -633,15 +872,24 @@ function renderOrders(arr){
     </div>
 
     <p>
-     ${(o.items||[])
-      .map(x=>esc(x.name)+' × '+x.qty)
-      .join(', ')}
+     ${
+      (o.items||[])
+       .map(
+        x=>esc(x.name)+' × '+x.qty
+       )
+       .join(', ')
+     }
     </p>
 
-    <b>Total: ₹${o.total}</b>
+    <b>
+     Total: ₹${o.total}
+    </b>
 
     <p class="small">
-     Payment: ${esc(o.payment)} • ${esc(o.paymentStatus)}
+     Payment:
+     ${esc(o.payment)}
+     •
+     ${esc(o.paymentStatus)}
     </p>
 
     ${
@@ -657,22 +905,31 @@ function renderOrders(arr){
     }
 
     <div class="steps">
+
      ${
-      rank.map(s=>`
-       <div class="${
-        rank.indexOf(o.status)>=rank.indexOf(s)
-         ?'done'
-         :''
-       }">
-        ${
+      rank.map(
+       s=>`
+
+        <div class="${
          rank.indexOf(o.status)>=rank.indexOf(s)
-          ?'●'
-          :'○'
-        }
-        ${s}
-       </div>
-      `).join('')
+          ?'done'
+          :''
+        }">
+
+         ${
+          rank.indexOf(o.status)>=rank.indexOf(s)
+           ?'●'
+           :'○'
+         }
+
+         ${s}
+
+        </div>
+
+       `
+      ).join('')
      }
+
     </div>
 
     <button
@@ -681,26 +938,34 @@ function renderOrders(arr){
     >
      Reorder
     </button>
+
    </div>
+
   `).join('')||
-  '<div class="card small">No orders yet.</div>'
+
+  '<div class="card small">No orders yet.</div>';
 }
 
 window.payOrder=id=>{
+
  const o=(
   configured
    ?liveOrders
    :get('orders',[])
- ).find(x=>x.id===id);
+ ).find(
+  x=>x.id===id
+ );
 
  if(!o)return;
 
- const upi=window.SKMED_UPI_ID||'';
+ const upi=
+  window.SKMED_UPI_ID||'';
 
  if(!upi){
+
   return alert(
    'Online payment is not configured by the pharmacy yet.'
-  )
+  );
  }
 
  location.href=
@@ -708,70 +973,96 @@ window.payOrder=id=>{
   encodeURIComponent(upi)+
   '&pn='+
   encodeURIComponent(
-   window.SKMED_UPI_NAME||'Sri Krishna Medicals'
+   window.SKMED_UPI_NAME||
+   'Sri Krishna Medicals'
   )+
   '&am='+
   encodeURIComponent(o.total)+
   '&cu=INR&tn='+
-  encodeURIComponent(o.orderNumber)
+  encodeURIComponent(o.orderNumber);
 };
 
 window.reorderById=id=>{
+
  const o=(
   configured
    ?liveOrders
    :get('orders',[])
- ).find(x=>x.id===id);
+ ).find(
+  x=>x.id===id
+ );
 
  if(!o)return;
 
  saveCart(
-  (o.items||[]).map(x=>({
-   ...x,
-   qty:x.qty||1
-  }))
+  (o.items||[]).map(
+   x=>({
+    ...x,
+    qty:x.qty||1
+   })
+  )
  );
 
- page('cart')
+ page('cart');
 };
 
 function renderAccount(){
+
  const u=get('user',null);
 
  document.getElementById('accountBox').innerHTML=
+
   u
    ?`<b>${esc(u.name)}</b><br><span class="small">${esc(u.phone)}</span>`
-   :'<button onclick="page(\'login\')">Login / Register</button>'
+   :'<button onclick="page(\'login\')">Login / Register</button>';
 }
 
 window.logout=()=>{
  localStorage.removeItem(K+'user');
- page('home')
+ page('home');
 };
 
-window.addEventListener('beforeinstallprompt',e=>{
- e.preventDefault();
- deferredPrompt=e;
+window.addEventListener(
+ 'beforeinstallprompt',
+ e=>{
 
- const b=document.getElementById('installBtn');
+  e.preventDefault();
 
- if(b)b.classList.remove('hidden')
-});
+  deferredPrompt=e;
+
+  const b=
+   document.getElementById('installBtn');
+
+  if(b)b.classList.remove('hidden');
+ }
+);
 
 window.installApp=()=>{
+
  if(deferredPrompt){
+
   deferredPrompt.prompt();
-  deferredPrompt.userChoice.then(()=>deferredPrompt=null)
+
+  deferredPrompt.userChoice.then(
+   ()=>deferredPrompt=null
+  );
+
  }else{
-  alert('Use Chrome ⋮ → Install app or Add to Home screen.')
+
+  alert(
+   'Use Chrome ⋮ → Install app or Add to Home screen.'
+  );
  }
 };
 
 if('serviceWorker'in navigator){
+
  window.addEventListener(
   'load',
-  ()=>navigator.serviceWorker.register('./service-worker.js')
- )
+  ()=>navigator.serviceWorker.register(
+   './service-worker.js'
+  )
+ );
 }
 
 loadProducts();
