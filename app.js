@@ -76,8 +76,22 @@ window.placeOrder=async()=>{
 
   set('cart',[]);set('user',{name:nameV,phone:phoneV});updateCartBar();
 
-  const whatsappUrl='https://wa.me/918300363317?text='+encodeURIComponent(message);
-  window.location.href=whatsappUrl;
+  const whatsappText=encodeURIComponent(message);
+  const whatsappAppUrl='whatsapp://send?phone=918300363317&text='+whatsappText;
+  const whatsappWebUrl='https://api.whatsapp.com/send?phone=918300363317&text='+whatsappText;
+
+  // Open the exact pharmacy WhatsApp chat directly without invoking a share sheet.
+  // Open the exact pharmacy WhatsApp chat directly. The fallback runs only if
+  // the page is still visible, meaning the WhatsApp app did not open.
+  let whatsappOpened=false;
+  const markWhatsappOpened=()=>{ if(document.visibilityState==='hidden') whatsappOpened=true; };
+  document.addEventListener('visibilitychange',markWhatsappOpened,{once:true});
+  window.location.assign(whatsappAppUrl);
+  setTimeout(()=>{
+    if(!whatsappOpened && document.visibilityState==='visible'){
+      window.location.assign(whatsappWebUrl);
+    }
+  },1800);
   return;
  }catch(e){console.error(e);alert('Order could not be submitted: '+e.message)}finally{if(btn){btn.disabled=false;btn.textContent='Place Order'}}
 };
