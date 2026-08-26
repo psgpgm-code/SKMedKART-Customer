@@ -382,3 +382,398 @@ async function createOnlineOrderAtomically(items,o){
 
    tx.set(orderRef,o);
   }),
+  30000,
+  'Order submission'
+ );
+
+ return orderRef.id
+}
+
+window.placeOrder=async()=>{
+ const c=cart();
+
+ const nameV=document.getElementById('name').value.trim();
+ const phoneV=document.getElementById('phone').value.trim();
+ const addressV=document.getElementById('address').value.trim();
+ const deliveryV=document.getElementById('delivery').value;
+ const payV=document.getElementById('pay').value;
+
+ if(!c.length)return alert('Cart is empty.');
+
+ if(
+  !nameV||
+  !/^[0-9]{10}$/.test(phoneV)||
+  (!addressV&&deliveryV==='Home Delivery')
+ ){
+  return alert('Please complete name, valid mobile number and delivery address.')
+ }
+
+ const needsRx=c.some(x=>x.rx);
+ const file=document.getElementById('rxfile').files[0];
+
+ if(needsRx&&!file){
+  return alert('Please upload the prescription for prescription-required medicine.')
+ }
+
+ const active=document.activeElement;
+
+ const btn=
+  active?.tagName==='BUTTON'
+   ?active
+   :document.querySelector('button[onclick*="placeOrder"]');
+
+ const oldText=btn?.textContent||'Place Order';
+
+ try{
+  if(btn){
+   btn.disabled=true;
+   btn.textContent=needsRx
+    ?'Uploading Prescription...'
+    :'Placing Order...'
+  }
+
+  let rx=null;
+
+  if(needsRx&&file){
+   rx={
+    name:file.name,
+    whatsapp:true
+   };
+  }
+
+  if(btn)btn.textContent='Submitting Order...';
+
+  const status=needsRx
+   ?'Prescription Under Pharmacist Review'
+   :'Order Placed';
+
+  const o={
+   orderNumber:'SKM'+Date.now(),
+
+   customer:{
+    name:nameV,
+    phone:phoneV,
+    address:addressV,
+    delivery:deliveryV
+   },
+
+   payment:payV,
+   paymentStatus:'Pending',
+
+   items:c,
+   total:total(c),
+
+   status,
+   needsRx,
+
+   prescription:{
+    ...(rx||{}),
+    doctor:document.getElementById('doctor').value.trim()
+   },
+
+   pharmacistNote:'',
+
+   createdAt:configured
+    ?serverTimestamp()
+    :new Date().toISOString(),
+
+   updatedAt:configured
+    ?serverTimestamp()
+    :new Date().toISOString(),
+
+   timeline:[
+    {
+     status,
+     note:'Order submitted by customer',
+     at:new Date().toISOString()
+    }
+   ]
+  };
+
+  if(configured){
+   o.id=await createOnlineOrderAtomically(c,o);
+  }else{
+   const id='LOCAL_'+Date.now();
+   o.id=id;
+
+   const arr=get('orders',[]);
+   arr.unshift(o);
+   set('orders',arr);
+  }
+
+  set('cart',[]);
+  set('user',{
+   name:nameV,
+   phone:phoneV
+  });
+
+  updateCartBar();
+
+  const orderItems=c.map(x=>
+   `• ${x.name} × ${x.qty}`
+  ).join('\n');
+
+  const message=
+`🛒 *New SKMedKART Order*
+
+🆔 *Order ID:* ${o.orderNumber}
+
+👤 *Customer:* ${nameV}
+📱 *Mobile:* ${phoneV}
+🏠 *Address:* ${addressV||'Store Pickup'}
+🚚 *Delivery:* ${deliveryV}
+💳 *Payment:* ${payV}
+
+📦 *Order Items:*
+${orderItems}
+
+💰 *Total: ₹${total(c)}*
+${needsRx?'\n📋 *Prescription medicine included. Prescription details are available in the order.*':''}`;
+
+  window.open(
+   'https://wa.me/918300363317?text='+encodeURIComponent(message),
+   '_blank'
+  );
+
+  alert(
+   'Order placed successfully. Order ID: '+o.orderNumber
+  );
+
+  page('orders');
+
+ }catch(e){
+
+  console.error('SKMedKART order error:',e);
+
+  alert(
+   'Order could not be submitted. '+
+   (e?.message||'Please try again.')
+  );
+
+ }finally{
+
+  if(btn){
+   btn.disabled=false;
+   btn.textContent=oldText
+  }
+ }
+};
+
+function startOrders(){
+ let u=get('user',null);
+
+ if(!u){
+  renderOrders([]);
+  return
+ }
+
+ if(!configured){
+  renderOrders(
+   get('orders',[])
+    .filter(o=>o.customer?.phone===u.phone)
+    .sort((a,b)=>ts(b.createdAt)-ts(a.createdAt))
+  );
+  return
+ }
+
+ if(unsubOrders)unsubOrders();
+
+ unsubOrders=onSnapshot(
+  query(
+   collection(db,'orders'),
+   where('customer.phone','==',u.phone)
+  ),
+  s=>{
+   liveOrders=s.docs
+    .map(d=>({
+     id:d.id,
+     ...d.data()
+    }))
+    .sort((a,b)=>ts(b.createdAt)-ts(a.createdAt));
+
+   renderOrders(liveOrders)
+  },
+  e=>{
+   console.error(e);
+
+   document.getElementById('ordersList').innerHTML=
+    '<div class="card warning">Unable to load orders: '+
+    esc(e.message||'Check Firebase rules.')+
+    '</div>'
+  }
+ )
+}
+
+function renderOrders(arr){
+ let rank=[
+  'Order Placed',
+  'Prescription Under Pharmacist Review',
+  'Confirmed',
+  'Payment Pending',
+  'Ready',
+  'Out for Delivery',
+  'Delivered'
+ ];
+
+ document.getElementById('ordersList').innerHTML=
+  arr.map(o=>`
+   <div class="card">
+    <b>${esc(o.orderNumber||o.id)}</b>
+
+    <div class="status">
+     <b>${esc(o.status)}</b>
+    </div>
+
+    <div class="small">
+     ${
+      o.createdAt?.toDate
+       ?o.createdAt.toDate().toLocaleString()
+       :esc(o.createdAt||'')
+     }
+    </div>
+
+    <p>
+     ${(o.items||[])
+      .map(x=>esc(x.name)+' × '+x.qty)
+      .join(', ')}
+    </p>
+
+    <b>Total: ₹${o.total}</b>
+
+    <p class="small">
+     Payment: ${esc(o.payment)} • ${esc(o.paymentStatus)}
+    </p>
+
+    ${
+     o.pharmacistNote
+      ?'<div class="card note success"><b>Pharmacist message:</b> '+esc(o.pharmacistNote)+'</div>'
+      :''
+    }
+
+    ${
+     o.status==='Payment Pending'
+      ?`<button onclick="payOrder('${esc(o.id)}')">Pay Now</button>`
+      :''
+    }
+
+    <div class="steps">
+     ${
+      rank.map(s=>`
+       <div class="${
+        rank.indexOf(o.status)>=rank.indexOf(s)
+         ?'done'
+         :''
+       }">
+        ${
+         rank.indexOf(o.status)>=rank.indexOf(s)
+          ?'●'
+          :'○'
+        }
+        ${s}
+       </div>
+      `).join('')
+     }
+    </div>
+
+    <button
+     class="secondary"
+     onclick="reorderById('${esc(o.id)}')"
+    >
+     Reorder
+    </button>
+   </div>
+  `).join('')||
+  '<div class="card small">No orders yet.</div>'
+}
+
+window.payOrder=id=>{
+ const o=(
+  configured
+   ?liveOrders
+   :get('orders',[])
+ ).find(x=>x.id===id);
+
+ if(!o)return;
+
+ const upi=window.SKMED_UPI_ID||'';
+
+ if(!upi){
+  return alert(
+   'Online payment is not configured by the pharmacy yet.'
+  )
+ }
+
+ location.href=
+  'upi://pay?pa='+
+  encodeURIComponent(upi)+
+  '&pn='+
+  encodeURIComponent(
+   window.SKMED_UPI_NAME||'Sri Krishna Medicals'
+  )+
+  '&am='+
+  encodeURIComponent(o.total)+
+  '&cu=INR&tn='+
+  encodeURIComponent(o.orderNumber)
+};
+
+window.reorderById=id=>{
+ const o=(
+  configured
+   ?liveOrders
+   :get('orders',[])
+ ).find(x=>x.id===id);
+
+ if(!o)return;
+
+ saveCart(
+  (o.items||[]).map(x=>({
+   ...x,
+   qty:x.qty||1
+  }))
+ );
+
+ page('cart')
+};
+
+function renderAccount(){
+ const u=get('user',null);
+
+ document.getElementById('accountBox').innerHTML=
+  u
+   ?`<b>${esc(u.name)}</b><br><span class="small">${esc(u.phone)}</span>`
+   :'<button onclick="page(\'login\')">Login / Register</button>'
+}
+
+window.logout=()=>{
+ localStorage.removeItem(K+'user');
+ page('home')
+};
+
+window.addEventListener('beforeinstallprompt',e=>{
+ e.preventDefault();
+ deferredPrompt=e;
+
+ const b=document.getElementById('installBtn');
+
+ if(b)b.classList.remove('hidden')
+});
+
+window.installApp=()=>{
+ if(deferredPrompt){
+  deferredPrompt.prompt();
+  deferredPrompt.userChoice.then(()=>deferredPrompt=null)
+ }else{
+  alert('Use Chrome ⋮ → Install app or Add to Home screen.')
+ }
+};
+
+if('serviceWorker'in navigator){
+ window.addEventListener(
+  'load',
+  ()=>navigator.serviceWorker.register('./service-worker.js')
+ )
+}
+
+loadProducts();
+renderCart();
+updateCartBar();
