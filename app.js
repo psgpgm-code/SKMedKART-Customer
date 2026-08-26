@@ -77,21 +77,11 @@ window.placeOrder=async()=>{
   set('cart',[]);set('user',{name:nameV,phone:phoneV});updateCartBar();
 
   const whatsappText=encodeURIComponent(message);
-  const whatsappAppUrl='whatsapp://send?phone=918300363317&text='+whatsappText;
-  const whatsappWebUrl='https://api.whatsapp.com/send?phone=918300363317&text='+whatsappText;
 
-  // Open the exact pharmacy WhatsApp chat directly without invoking a share sheet.
-  // Open the exact pharmacy WhatsApp chat directly. The fallback runs only if
-  // the page is still visible, meaning the WhatsApp app did not open.
-  let whatsappOpened=false;
-  const markWhatsappOpened=()=>{ if(document.visibilityState==='hidden') whatsappOpened=true; };
-  document.addEventListener('visibilitychange',markWhatsappOpened,{once:true});
-  window.location.assign(whatsappAppUrl);
-  setTimeout(()=>{
-    if(!whatsappOpened && document.visibilityState==='visible'){
-      window.location.assign(whatsappWebUrl);
-    }
-  },1800);
+  // No Android share API, custom WhatsApp scheme, intent or chooser.
+  // One HTTPS URL opens the exact Sri Krishna Medicals WhatsApp number.
+  const whatsappUrl='https://api.whatsapp.com/send?phone=918300363317&text='+whatsappText;
+  window.location.href=whatsappUrl;
   return;
  }catch(e){console.error(e);alert('Order could not be submitted: '+e.message)}finally{if(btn){btn.disabled=false;btn.textContent='Place Order'}}
 };
@@ -103,5 +93,5 @@ function renderAccount(){const u=get('user',null);document.getElementById('accou
 window.logout=()=>{localStorage.removeItem(K+'user');page('home')};
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;const b=document.getElementById('installBtn');if(b)b.classList.remove('hidden')});
 window.installApp=()=>{if(deferredPrompt){deferredPrompt.prompt();deferredPrompt.userChoice.then(()=>deferredPrompt=null)}else alert('Use Chrome ⋮ → Install app or Add to Home screen.')};
-if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./service-worker.js'));
+if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./service-worker.js?v=5'));
 showNotice();loadProducts();renderCart();updateCartBar();
