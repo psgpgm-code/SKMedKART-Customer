@@ -1,26 +1,30 @@
 {
-  "name": "SKMedKART Customer",
+  "id": "./",
+  "name": "SKMedKART",
   "short_name": "SKMedKART",
-  "description": "Sri Krishna Medicals Customer App",
+  "description": "Sri Krishna Medicals - Online Pharmacy",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "display_override": ["standalone"],
-  "background_color": "#f5f7fb",
+  "display_override": [
+    "standalone",
+    "minimal-ui"
+  ],
+  "background_color": "#f4f7fb",
   "theme_color": "#125a7a",
   "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "icon-192.png",
+      "src": "icons/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any"
+      "purpose": "any maskable"
     },
     {
-      "src": "icon-512.png",
+      "src": "icons/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any"
+      "purpose": "any maskable"
     }
   ]
 }

@@ -1,16 +1,18 @@
-SKMedKART CUSTOMER APP
-Upload ALL files in this folder to one GitHub repository.
-This is only for customers.
+SKMedKART Android Install Fix
 
-Features:
-- Customer profile login/register on device
-- Human medicines
-- Veterinary medicines
-- Cosmetics
-- Health & wellness
-- Cart and checkout
-- Prescription upload for Rx items
-- My Orders and reorder
-- Live stock/order sync AFTER Firebase is configured
+Upload ONLY these files/folder to the SKMedKART-Customer repository root:
+- index.html
+- app.js
+- manifest.webmanifest
+- service-worker.js
+- icons/icon-192.png
+- icons/icon-512.png
 
-IMPORTANT: Use the SAME Firebase project/configuration in both Customer and Admin apps.
+Do NOT change the SKMedKART-Admin repository.
+
+After uploading:
+1. Commit changes.
+2. Wait 2-3 minutes.
+3. Open the customer GitHub Pages link in Chrome.
+4. Close any old installed shortcut if present.
+5. Chrome menu (⋮) should show Install app / Install SKMedKART.

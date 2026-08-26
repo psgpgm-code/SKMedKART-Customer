@@ -1,141 +1,35 @@
-const CACHE_NAME = "skmedkart-customer-v2";
-
-const APP_FILES = [
-  "./",
-  "./index.html",
-  "./manifest.json",
-  "./app.js",
-  "./firebase-config.js",
-  "./icon-192.png",
-  "./icon-512.png"
+const CACHE='skmedkart-pwa-v2';
+const APP_SHELL=[
+  './',
+  './index.html',
+  './manifest.webmanifest',
+  './icons/icon-192.png',
+  './icons/icon-512.png'
 ];
 
-
-/* INSTALL */
-
-self.addEventListener("install", (event) => {
-
-  event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then((cache) => {
-        return cache.addAll(APP_FILES);
-      })
-      .then(() => self.skipWaiting())
-  );
-
+self.addEventListener('install', event => {
+  event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(APP_SHELL)));
+  self.skipWaiting();
 });
 
-
-/* ACTIVATE */
-
-self.addEventListener("activate", (event) => {
-
+self.addEventListener('activate', event => {
   event.waitUntil(
-    caches.keys()
-      .then((cacheNames) => {
-
-        return Promise.all(
-
-          cacheNames.map((cacheName) => {
-
-            if (cacheName !== CACHE_NAME) {
-              return caches.delete(cacheName);
-            }
-
-          })
-
-        );
-
-      })
-      .then(() => self.clients.claim())
+    caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
   );
-
+  self.clients.claim();
 });
 
-
-/* FETCH */
-
-self.addEventListener("fetch", (event) => {
-
-  if (event.request.method !== "GET") {
-    return;
-  }
-
-
-  /* PAGE NAVIGATION - NETWORK FIRST */
-
-  if (event.request.mode === "navigate") {
-
-    event.respondWith(
-
-      fetch(event.request)
-
-        .then((response) => {
-
-          const responseClone = response.clone();
-
-          caches.open(CACHE_NAME)
-            .then((cache) => {
-              cache.put(event.request, responseClone);
-            });
-
-          return response;
-
-        })
-
-        .catch(() => {
-          return caches.match(event.request)
-            .then((cachedResponse) => {
-              return cachedResponse || caches.match("./index.html");
-            });
-        })
-
-    );
-
-    return;
-
-  }
-
-
-  /* OTHER FILES - CACHE FIRST */
-
+self.addEventListener('fetch', event => {
+  if (event.request.method !== 'GET') return;
+  const url = new URL(event.request.url);
+  if (url.origin !== location.origin) return;
   event.respondWith(
-
-    caches.match(event.request)
-
-      .then((cachedResponse) => {
-
-        if (cachedResponse) {
-          return cachedResponse;
-        }
-
-
-        return fetch(event.request)
-
-          .then((response) => {
-
-            if (
-              !response ||
-              response.status !== 200 ||
-              response.type !== "basic"
-            ) {
-              return response;
-            }
-
-
-            const responseClone = response.clone();
-
-            caches.open(CACHE_NAME)
-              .then((cache) => {
-                cache.put(event.request, responseClone);
-              });
-
-            return response;
-
-          });
-
-      })
-
+    fetch(event.request).then(response => {
+      const copy = response.clone();
+      if (response.ok && (url.pathname.endsWith('.html') || url.pathname.endsWith('.js') || url.pathname.endsWith('.webmanifest') || url.pathname.includes('/icons/'))) {
+        caches.open(CACHE).then(cache => cache.put(event.request, copy));
+      }
+      return response;
+    }).catch(() => caches.match(event.request).then(cached => cached || caches.match('./index.html')))
   );
-
 });
