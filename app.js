@@ -28,6 +28,10 @@ const seed=[
 let products=[],currentCat='All',deferredPrompt=null;
 const get=(k,d)=>{try{return JSON.parse(localStorage.getItem(K+k)||JSON.stringify(d))}catch{return d}};
 const set=(k,v)=>localStorage.setItem(K+k,JSON.stringify(v));
+const USER_KEY='skmedkart_customer_profile';
+function getUser(){try{return JSON.parse(localStorage.getItem(USER_KEY)||localStorage.getItem(K+'user')||'null')}catch{return null}}
+function saveUser(u){localStorage.setItem(USER_KEY,JSON.stringify(u));set('user',u)}
+function clearUser(){localStorage.removeItem(USER_KEY);localStorage.removeItem(K+'user');}
 const esc=s=>String(s??'').replace(/[&<>'"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[m]));
 function ts(v){return v?.toDate?v.toDate().getTime():new Date(v||0).getTime()}
 function initLocalProducts(){let p=get('products',null);if(!Array.isArray(p)){p=seed;set('products',p)}products=p.filter(x=>x.active!==false)}
@@ -56,42 +60,29 @@ window.removeCart=i=>{let c=cart();c.splice(i,1);saveCart(c);renderCart()};
 const total=c=>c.reduce((s,x)=>s+(Number(x.price)||0)*Number(x.qty||0),0);
 function updateCartBar(){let c=cart(),b=document.getElementById('cartbar');if(!b)return;if(!c.length){b.style.display='none';return}b.style.display='block';document.getElementById('cartsum').textContent=c.reduce((s,x)=>s+x.qty,0)+' item(s) • ₹'+total(c)}
 
-window.customerLogin=()=>{let n=document.getElementById('loginName').value.trim(),p=document.getElementById('loginPhone').value.trim();if(!n||!/^[0-9]{10}$/.test(p))return alert('Enter your name and valid 10-digit mobile number.');set('user',{name:n,phone:p});page('home');};
-window.goToCheckout=()=>{if(!cart().length)return alert('Your cart is empty.');let u=get('user',null);if(!u){alert('Please Login / Register first.');page('login');return}document.getElementById('name').value=u.name||'';document.getElementById('phone').value=u.phone||'';page('checkout')};
+window.customerLogin=()=>{let n=document.getElementById('loginName').value.trim(),p=document.getElementById('loginPhone').value.trim();if(!n||!/^[0-9]{10}$/.test(p))return alert('Enter your name and valid 10-digit mobile number.');saveUser({name:n,phone:p});page('home');};
+window.goToCheckout=()=>{if(!cart().length)return alert('Your cart is empty.');let u=getUser();if(!u){alert('Please Login / Register first.');page('login');return}document.getElementById('name').value=u.name||'';document.getElementById('phone').value=u.phone||'';page('checkout')};
 async function uploadRx(file,phone){if(!file)return null;if(!configured)return {name:file.name,url:null,local:true};const r=ref(storage,`prescriptions/${phone}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g,'_')}`);await uploadBytes(r,file);return {name:file.name,url:await getDownloadURL(r)}}
 async function createOrderAtomically(items, orderData){
- if(!configured){
-   let p=get('products',[]);
-   for(const x of items){
-     const z=p.find(a=>a.id===x.id);
-     if(!z || Number(z.stock||0)<Number(x.qty||0)){
-       throw new Error(x.name+' is no longer available in the requested quantity.');
-     }
-   }
-   items.forEach(x=>{
-     const z=p.find(a=>a.id===x.id);
-     z.stock=Number(z.stock||0)-Number(x.qty||0);
-   });
-   set('products',p);
-   products=p.filter(x=>x.active!==false);
-   const id='LOCAL_'+Date.now();
-   orderData.id=id;
-   const arr=get('orders',[]);
-   arr.unshift(orderData);
-   set('orders',arr);
-   set('adminAlerts',[{type:'New order',orderId:id,message:'New customer order '+orderData.orderNumber,at:new Date().toISOString(),read:false},...get('adminAlerts',[])]);
-   return id;
- }
+  // CUSTOMER APP MUST ONLY CREATE THE ORDER.
+  // Stock changes are handled by the Admin Portal. A customer-side
+  // transaction that tries to read/update products can be rejected by
+  // Firestore rules and would prevent the order from reaching Admin.
+  if(!configured){
+    const id='LOCAL_'+Date.now();
+    orderData.id=id;
+    const arr=get('orders',[]);
+    arr.unshift(orderData);
+    set('orders',arr);
+    set('adminAlerts',[{type:'New order',orderId:id,message:'New customer order '+orderData.orderNumber,at:new Date().toISOString(),read:false},...get('adminAlerts',[])]);
+    return id;
+  }
 
- // LIVE MODE: create the customer order directly in the shared Firestore
- // orders collection. Do not update products from the customer app here;
- // the Admin Portal already handles stock reservation when the order is
- // confirmed/processed. This keeps order creation independent of product
- // write permissions and guarantees the order reaches Admin + My Orders.
- const orderRef=await addDoc(collection(db,'orders'),orderData);
- const verify=await getDoc(orderRef);
- if(!verify.exists()) throw new Error('Order was not confirmed in the shared Firebase orders collection.');
- return orderRef.id;
+  const orderRef=await addDoc(collection(db,'orders'),orderData);
+  // Verify the exact document before reporting success to the customer.
+  const verify=await getDoc(orderRef);
+  if(!verify.exists()) throw new Error('Order was not confirmed in the shared Firebase orders collection.');
+  return orderRef.id;
 }
 
 window.placeOrder=async()=>{
@@ -127,6 +118,14 @@ window.placeOrder=async()=>{
   const id=await createOrderAtomically(c,o);
   o.id=id;
 
+  // Keep a local copy immediately. This makes My Orders reliable even if
+  // a customer read query is temporarily blocked by Firestore rules/network.
+  const localOrder={...o,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
+  const localOrders=get('orders',[]).filter(x=>x.id!==id);
+  localOrders.unshift(localOrder);
+  set('orders',localOrders.slice(0,50));
+  liveOrders=[localOrder,...liveOrders.filter(x=>x.id!==id)];
+
   // Prescription upload happens AFTER the order exists in Firestore.
   // If Storage rules/network fail, the order is still received by Admin.
   let rx=null,rxError='';
@@ -149,7 +148,7 @@ window.placeOrder=async()=>{
   const message=`🛒 *New SKMedKART Order*\n\n🆔 *Order ID:* ${o.orderNumber}\n\n👤 *Customer:* ${nameV}\n📱 *Mobile:* ${phoneV}\n🏠 *Address:* ${addressV||'Store Pickup'}\n🚚 *Delivery:* ${deliveryV}\n💳 *Payment:* ${payV}\n\n📦 *Order Items:*\n${orderItems}\n\n💰 *Total: ₹${total(c)}*${prescriptionMessage}`;
 
   set('cart',[]);
-  set('user',{name:nameV,phone:phoneV});
+  saveUser({name:nameV,phone:phoneV});
   updateCartBar();
 
   // Direct WhatsApp URL only. No browser share sheet or Android share intent.
@@ -164,12 +163,45 @@ window.placeOrder=async()=>{
  }
 };
 
-function startOrders(){let u=get('user',null);if(!u){renderOrders([]);return}if(!configured){renderOrders(get('orders',[]).filter(o=>o.customer?.phone===u.phone).sort((a,b)=>ts(b.createdAt)-ts(a.createdAt)));return}if(unsubOrders)unsubOrders();unsubOrders=onSnapshot(query(collection(db,'orders'),where('customer.phone','==',u.phone)),s=>{liveOrders=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>ts(b.createdAt)-ts(a.createdAt));renderOrders(liveOrders)},()=>document.getElementById('ordersList').innerHTML='<div class="card warning">Unable to load orders. Check Firebase Firestore rules.</div>')}
+function startOrders(){
+ let u=getUser();
+ if(!u){renderOrders([]);return}
+ const local=get('orders',[]).filter(o=>o.customer?.phone===u.phone).sort((a,b)=>ts(b.createdAt)-ts(a.createdAt));
+ liveOrders=local;
+ renderOrders(local);
+ if(!configured)return;
+ if(unsubOrders)unsubOrders();
+ unsubOrders=onSnapshot(query(collection(db,'orders'),where('customer.phone','==',u.phone)),s=>{
+   const remote=s.docs.map(d=>({id:d.id,...d.data()}));
+   const remoteIds=new Set(remote.map(x=>x.id));
+   const keepLocal=local.filter(x=>!remoteIds.has(x.id));
+   liveOrders=[...remote,...keepLocal].sort((a,b)=>ts(b.createdAt)-ts(a.createdAt));
+   renderOrders(liveOrders);
+   // Refresh local cache with confirmed remote orders for future reliability.
+   const merged=[...liveOrders];
+   set('orders',merged.slice(0,50));
+ },e=>{
+   console.error('Customer orders read error:',e);
+   // Do not erase locally confirmed orders when Firestore read is unavailable.
+   renderOrders(local);
+ });
+}
 function renderOrders(arr){let rank=['Order Placed','Prescription Under Pharmacist Review','Confirmed','Payment Pending','Ready','Out for Delivery','Delivered'];document.getElementById('ordersList').innerHTML=arr.map(o=>`<div class="card"><b>${esc(o.orderNumber||o.id)}</b><div class="status"><b>${esc(o.status)}</b></div><div class="small">${o.createdAt?.toDate?o.createdAt.toDate().toLocaleString():esc(o.createdAt||'')}</div><p>${(o.items||[]).map(x=>esc(x.name)+' × '+x.qty).join(', ')}</p><b>Total: ₹${o.total}</b><p class="small">Payment: ${esc(o.payment)} • ${esc(o.paymentStatus)}</p>${o.pharmacistNote?'<div class="card note success"><b>Pharmacist message:</b> '+esc(o.pharmacistNote)+'</div>':''}${o.status==='Payment Pending'?`<button onclick="payOrder('${esc(o.id)}')">Pay Now</button>`:''}<div class="steps">${rank.map(s=>`<div class="${rank.indexOf(o.status)>=rank.indexOf(s)?'done':''}">${rank.indexOf(o.status)>=rank.indexOf(s)?'●':'○'} ${s}</div>`).join('')}</div><button class="secondary" onclick="reorderById('${esc(o.id)}')">Reorder</button></div>`).join('')||'<div class="card small">No orders yet.</div>'}
 window.payOrder=id=>{const o=(configured?liveOrders:get('orders',[])).find(x=>x.id===id);if(!o)return;const upi=window.SKMED_UPI_ID||'';if(!upi)return alert('Online payment is not configured by the pharmacy yet.');location.href='upi://pay?pa='+encodeURIComponent(upi)+'&pn='+encodeURIComponent(window.SKMED_UPI_NAME||'Sri Krishna Medicals')+'&am='+encodeURIComponent(o.total)+'&cu=INR&tn='+encodeURIComponent(o.orderNumber)};
 window.reorderById=id=>{const o=(configured?liveOrders:get('orders',[])).find(x=>x.id===id);if(!o)return;saveCart((o.items||[]).map(x=>({...x,qty:x.qty||1})));page('cart')};
-function renderAccount(){const u=get('user',null);document.getElementById('accountBox').innerHTML=u?`<b>${esc(u.name)}</b><br><span class="small">${esc(u.phone)}</span>`:'<button onclick="page(\'login\')">Login / Register</button>'}
-window.logout=()=>{localStorage.removeItem(K+'user');page('home')};
+function renderAccount(){const u=getUser();document.getElementById('accountBox').innerHTML=u?`<b>${esc(u.name)}</b><br><span class="small">${esc(u.phone)}</span>`:'<button onclick="page(\'login\')">Login / Register</button>'}
+window.logout=()=>{clearUser();page('home')};
+// Keep customer registration across refreshes and app updates.
+// Older versions used a versioned localStorage key; migrate it once.
+(function restoreCustomerProfile(){
+  try{
+    if(!localStorage.getItem(USER_KEY)){
+      const old=get('user',null);
+      if(old&&old.name&&old.phone) localStorage.setItem(USER_KEY,JSON.stringify(old));
+    }
+  }catch(e){console.warn('Customer profile restore:',e)}
+})();
+
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;const b=document.getElementById('installBtn');if(b)b.classList.remove('hidden')});
 window.installApp=()=>{if(deferredPrompt){deferredPrompt.prompt();deferredPrompt.userChoice.then(()=>deferredPrompt=null)}else alert('Use Chrome ⋮ → Install app or Add to Home screen.')};
 if('serviceWorker' in navigator) window.addEventListener('load', async ()=>{ try{ const regs=await navigator.serviceWorker.getRegistrations(); for(const r of regs){ if(r.scope && r.scope.includes('/SKMedKART-Customer/')) await r.unregister(); } await caches.keys().then(keys=>Promise.all(keys.map(k=>caches.delete(k)))); }catch(e){console.warn('SKMedKART cache reset:',e)} try{ await navigator.serviceWorker.register('./service-worker.js?v=7'); }catch(e){console.warn('SKMedKART SW register:',e)} });

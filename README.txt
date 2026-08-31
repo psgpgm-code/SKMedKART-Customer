@@ -9,6 +9,3 @@ Changes only for live order reliability:
 - New service worker cache is v7.
 - Existing Firestore order transaction and WhatsApp flow are preserved.
 - Orders continue to write to the shared Firestore `orders` collection used by the Admin portal.
-
-
-Order receive fix: live customer checkout writes directly to the shared Firestore orders collection; Admin Portal and My Orders read the same collection. Existing customer features are otherwise unchanged.
