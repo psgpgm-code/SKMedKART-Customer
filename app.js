@@ -1,15 +1,16 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
-import { getFirestore, collection, addDoc, getDocs, query, where, serverTimestamp, onSnapshot, doc, runTransaction, getDoc, updateDoc } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+import { getFirestore, collection, setDoc, getDocs, query, where, serverTimestamp, onSnapshot, doc, getDoc, updateDoc } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+import { getAuth, signInAnonymously, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js';
 
-const K='skm_v10_';
+const K='skm_v11_';
 const BUILTIN_FIREBASE_CONFIG={apiKey:'AIzaSyBdvOUiTVoBJHPE418iZqNzYftiN9yjooA',authDomain:'skmedkart.firebaseapp.com',projectId:'skmedkart',storageBucket:'skmedkart.firebasestorage.app',messagingSenderId:'921893232974',appId:'1:921893232974:web:45813196e59052e9597e1f'};
 // ORDER RECEIVE FIX: Always use the shared SKMedKART Firebase project.
 // Do not allow a stale firebase-config.js on an old deployment to redirect orders elsewhere.
 const cfg=BUILTIN_FIREBASE_CONFIG;
 const configured=!!(cfg.projectId&&!String(cfg.projectId).startsWith('PASTE_'));
-let db=null,storage=null,unsubOrders=null,liveOrders=[];
-if(configured){const app=initializeApp(cfg);db=getFirestore(app);storage=getStorage(app)}
+let db=null,storage=null,auth=null,unsubOrders=null,liveOrders=[];
+if(configured){const app=initializeApp(cfg);db=getFirestore(app);storage=getStorage(app);auth=getAuth(app)}
 
 const seed=[
  {id:'demo_dolo650',name:'Dolo 650 Tablet',cat:'Human Medicines',price:30,rx:false,icon:'💊',stock:50,active:true},
@@ -29,9 +30,22 @@ let products=[],currentCat='All',deferredPrompt=null;
 const get=(k,d)=>{try{return JSON.parse(localStorage.getItem(K+k)||JSON.stringify(d))}catch{return d}};
 const set=(k,v)=>localStorage.setItem(K+k,JSON.stringify(v));
 const USER_KEY='skmedkart_customer_profile';
-function getUser(){try{return JSON.parse(localStorage.getItem(USER_KEY)||localStorage.getItem(K+'user')||'null')}catch{return null}}
-function saveUser(u){localStorage.setItem(USER_KEY,JSON.stringify(u));set('user',u)}
-function clearUser(){localStorage.removeItem(USER_KEY);localStorage.removeItem(K+'user');}
+function getUser(){try{
+  const raw=localStorage.getItem(USER_KEY)||localStorage.getItem('skmedkart_customer_profile_v2')||localStorage.getItem('skmedkart_customer_profile_v1')||localStorage.getItem('skmedkart_customer_profile_v0')||localStorage.getItem(K+'user')||localStorage.getItem('skm_v10_user')||localStorage.getItem('skm_v9_user');
+  return raw?JSON.parse(raw):null;
+}catch{return null}}
+function saveUser(u){
+  const clean={name:String(u?.name||'').trim(),phone:String(u?.phone||'').trim(),savedAt:new Date().toISOString()};
+  localStorage.setItem(USER_KEY,JSON.stringify(clean));
+  localStorage.setItem('skmedkart_customer_profile_v2',JSON.stringify(clean));
+  set('user',clean);
+}
+function clearUser(){localStorage.removeItem(USER_KEY);localStorage.removeItem('skmedkart_customer_profile_v2');localStorage.removeItem(K+'user');}
+async function ensureCustomerAuth(){
+  if(!configured||!auth)return null;
+  if(auth.currentUser)return auth.currentUser;
+  try{const cred=await signInAnonymously(auth);return cred.user}catch(e){console.warn('Anonymous customer auth unavailable:',e?.code||e?.message);return null}
+}
 const esc=s=>String(s??'').replace(/[&<>'"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[m]));
 function ts(v){return v?.toDate?v.toDate().getTime():new Date(v||0).getTime()}
 function initLocalProducts(){let p=get('products',null);if(!Array.isArray(p)){p=seed;set('products',p)}products=p.filter(x=>x.active!==false)}
@@ -78,11 +92,15 @@ async function createOrderAtomically(items, orderData){
     return id;
   }
 
-  const orderRef=await addDoc(collection(db,'orders'),orderData);
-  // Verify the exact document before reporting success to the customer.
+  // Authenticate anonymously when Firebase allows it. This keeps the customer
+  // session stable and satisfies rules that require request.auth for customer writes.
+  await ensureCustomerAuth();
+  const orderNumber=String(orderData.orderNumber||('SKM'+Date.now()));
+  const orderRef=doc(db,'orders',orderNumber);
+  await setDoc(orderRef,orderData,{merge:false});
   const verify=await getDoc(orderRef);
   if(!verify.exists()) throw new Error('Order was not confirmed in the shared Firebase orders collection.');
-  return orderRef.id;
+  return orderNumber;
 }
 
 window.placeOrder=async()=>{
@@ -170,22 +188,22 @@ function startOrders(){
  liveOrders=local;
  renderOrders(local);
  if(!configured)return;
+ // Customer order history must never disappear because a Firestore read rule
+ // rejects a customer query. Local confirmed orders remain visible.
+ ensureCustomerAuth().catch(()=>{});
  if(unsubOrders)unsubOrders();
- unsubOrders=onSnapshot(query(collection(db,'orders'),where('customer.phone','==',u.phone)),s=>{
-   const remote=s.docs.map(d=>({id:d.id,...d.data()}));
-   const remoteIds=new Set(remote.map(x=>x.id));
-   const keepLocal=local.filter(x=>!remoteIds.has(x.id));
-   liveOrders=[...remote,...keepLocal].sort((a,b)=>ts(b.createdAt)-ts(a.createdAt));
-   renderOrders(liveOrders);
-   // Refresh local cache with confirmed remote orders for future reliability.
-   const merged=[...liveOrders];
-   set('orders',merged.slice(0,50));
- },e=>{
-   console.error('Customer orders read error:',e);
-   // Do not erase locally confirmed orders when Firestore read is unavailable.
-   renderOrders(local);
- });
+ try{
+   unsubOrders=onSnapshot(query(collection(db,'orders'),where('customer.phone','==',u.phone)),s=>{
+     const remote=s.docs.map(d=>({id:d.id,...d.data()}));
+     const remoteIds=new Set(remote.map(x=>x.id));
+     const keepLocal=local.filter(x=>!remoteIds.has(x.id));
+     liveOrders=[...remote,...keepLocal].sort((a,b)=>ts(b.createdAt)-ts(a.createdAt));
+     renderOrders(liveOrders);
+     set('orders',liveOrders.slice(0,50));
+   },e=>{console.warn('Customer orders read unavailable; keeping local history:',e?.code||e?.message);renderOrders(liveOrders)});
+ }catch(e){console.warn('Customer orders listener unavailable:',e)}
 }
+
 function renderOrders(arr){let rank=['Order Placed','Prescription Under Pharmacist Review','Confirmed','Payment Pending','Ready','Out for Delivery','Delivered'];document.getElementById('ordersList').innerHTML=arr.map(o=>`<div class="card"><b>${esc(o.orderNumber||o.id)}</b><div class="status"><b>${esc(o.status)}</b></div><div class="small">${o.createdAt?.toDate?o.createdAt.toDate().toLocaleString():esc(o.createdAt||'')}</div><p>${(o.items||[]).map(x=>esc(x.name)+' × '+x.qty).join(', ')}</p><b>Total: ₹${o.total}</b><p class="small">Payment: ${esc(o.payment)} • ${esc(o.paymentStatus)}</p>${o.pharmacistNote?'<div class="card note success"><b>Pharmacist message:</b> '+esc(o.pharmacistNote)+'</div>':''}${o.status==='Payment Pending'?`<button onclick="payOrder('${esc(o.id)}')">Pay Now</button>`:''}<div class="steps">${rank.map(s=>`<div class="${rank.indexOf(o.status)>=rank.indexOf(s)?'done':''}">${rank.indexOf(o.status)>=rank.indexOf(s)?'●':'○'} ${s}</div>`).join('')}</div><button class="secondary" onclick="reorderById('${esc(o.id)}')">Reorder</button></div>`).join('')||'<div class="card small">No orders yet.</div>'}
 window.payOrder=id=>{const o=(configured?liveOrders:get('orders',[])).find(x=>x.id===id);if(!o)return;const upi=window.SKMED_UPI_ID||'';if(!upi)return alert('Online payment is not configured by the pharmacy yet.');location.href='upi://pay?pa='+encodeURIComponent(upi)+'&pn='+encodeURIComponent(window.SKMED_UPI_NAME||'Sri Krishna Medicals')+'&am='+encodeURIComponent(o.total)+'&cu=INR&tn='+encodeURIComponent(o.orderNumber)};
 window.reorderById=id=>{const o=(configured?liveOrders:get('orders',[])).find(x=>x.id===id);if(!o)return;saveCart((o.items||[]).map(x=>({...x,qty:x.qty||1})));page('cart')};
@@ -195,14 +213,12 @@ window.logout=()=>{clearUser();page('home')};
 // Older versions used a versioned localStorage key; migrate it once.
 (function restoreCustomerProfile(){
   try{
-    if(!localStorage.getItem(USER_KEY)){
-      const old=get('user',null);
-      if(old&&old.name&&old.phone) localStorage.setItem(USER_KEY,JSON.stringify(old));
-    }
+    const u=getUser();
+    if(u&&u.name&&u.phone) saveUser(u);
   }catch(e){console.warn('Customer profile restore:',e)}
 })();
 
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;const b=document.getElementById('installBtn');if(b)b.classList.remove('hidden')});
 window.installApp=()=>{if(deferredPrompt){deferredPrompt.prompt();deferredPrompt.userChoice.then(()=>deferredPrompt=null)}else alert('Use Chrome ⋮ → Install app or Add to Home screen.')};
-if('serviceWorker' in navigator) window.addEventListener('load', async ()=>{ try{ const regs=await navigator.serviceWorker.getRegistrations(); for(const r of regs){ if(r.scope && r.scope.includes('/SKMedKART-Customer/')) await r.unregister(); } await caches.keys().then(keys=>Promise.all(keys.map(k=>caches.delete(k)))); }catch(e){console.warn('SKMedKART cache reset:',e)} try{ await navigator.serviceWorker.register('./service-worker.js?v=7'); }catch(e){console.warn('SKMedKART SW register:',e)} });
+if('serviceWorker' in navigator) window.addEventListener('load',()=>{ navigator.serviceWorker.register('./service-worker.js?v=12').catch(e=>console.warn('SKMedKART SW register:',e)); });
 showNotice();loadProducts();renderCart();updateCartBar();
