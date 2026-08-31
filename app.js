@@ -83,35 +83,12 @@ async function createOrderAtomically(items, orderData){
    return id;
  }
 
- const orderRef=doc(collection(db,'orders'));
- await runTransaction(db,async tx=>{
-   // READ EVERY PRODUCT FIRST. No writes are allowed until ALL reads finish.
-   const rows=[];
-   for(const item of items){
-     const productRef=doc(db,'products',item.id);
-     const snap=await tx.get(productRef);
-     rows.push({item,productRef,snap});
-   }
-
-   // Validate every product after all reads are complete.
-   const updates=[];
-   for(const row of rows){
-     const x=row.item;
-     if(!row.snap.exists()) throw new Error(x.name+' is unavailable.');
-     const p=row.snap.data();
-     const stock=Number(p.stock||0);
-     const qty=Number(x.qty||0);
-     if(stock<qty) throw new Error('Insufficient stock for '+x.name+'. Available: '+stock);
-     updates.push({ref:row.productRef,newStock:stock-qty});
-   }
-
-   // ONLY NOW perform all writes.
-   for(const u of updates){
-     tx.update(u.ref,{stock:u.newStock,updatedAt:serverTimestamp()});
-   }
-   tx.set(orderRef,orderData);
- });
- // Confirm the order exists in the shared Firestore project before reporting success.
+ // LIVE MODE: create the customer order directly in the shared Firestore
+ // orders collection. Do not update products from the customer app here;
+ // the Admin Portal already handles stock reservation when the order is
+ // confirmed/processed. This keeps order creation independent of product
+ // write permissions and guarantees the order reaches Admin + My Orders.
+ const orderRef=await addDoc(collection(db,'orders'),orderData);
  const verify=await getDoc(orderRef);
  if(!verify.exists()) throw new Error('Order was not confirmed in the shared Firebase orders collection.');
  return orderRef.id;
