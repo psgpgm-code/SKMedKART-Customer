@@ -1,10 +1,11 @@
-SKMedKART Customer Final Order Fix V5
+SKMedKART Customer Admin Receive Fix V6
 
-Fixed the actual order flow:
-- Firestore transaction reads every product first, then performs all writes.
-- Stock update and order creation happen in ONE atomic transaction.
-- The order document is written to Firestore so Customer Orders and Admin Orders can receive it.
-- Local test mode also saves the order locally and creates adminAlerts.
-- No navigator.share, navigator.canShare, whatsapp://, or Android share intent.
-- WhatsApp opens via the exact HTTPS number 918300363317.
-- Cache/app version bumped to v6 to prevent old JavaScript from being served.
+Root cause addressed: the phone was still capable of running an older cached customer JavaScript version (the success alert shown by the user is not present in the current V5 app.js).
+
+Changes only for live order reliability:
+- Firebase config is embedded as a fallback so customer cannot silently fall back to local/test mode.
+- app.js / firebase-config.js / manifest are versioned to v7.
+- One-time service-worker/cache reset is performed on first load of V7.
+- New service worker cache is v7.
+- Existing Firestore order transaction and WhatsApp flow are preserved.
+- Orders continue to write to the shared Firestore `orders` collection used by the Admin portal.

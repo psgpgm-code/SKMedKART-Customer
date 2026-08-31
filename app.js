@@ -3,7 +3,9 @@ import { getFirestore, collection, addDoc, getDocs, query, where, serverTimestam
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js';
 
 const K='skm_v10_';
-const cfg=window.SKMED_FIREBASE_CONFIG||{};
+const BUILTIN_FIREBASE_CONFIG={apiKey:'AIzaSyBdvOUiTVoBJHPE418iZqNzYftiN9yjooA',authDomain:'skmedkart.firebaseapp.com',projectId:'skmedkart',storageBucket:'skmedkart.firebasestorage.app',messagingSenderId:'921893232974',appId:'1:921893232974:web:45813196e59052e9597e1f'};
+const externalCfg=window.SKMED_FIREBASE_CONFIG||{};
+const cfg=(externalCfg&&externalCfg.projectId&&!String(externalCfg.projectId).startsWith('PASTE_'))?externalCfg:BUILTIN_FIREBASE_CONFIG;
 const configured=!!(cfg.projectId&&!String(cfg.projectId).startsWith('PASTE_'));
 let db=null,storage=null,unsubOrders=null,liveOrders=[];
 if(configured){const app=initializeApp(cfg);db=getFirestore(app);storage=getStorage(app)}
@@ -174,5 +176,5 @@ function renderAccount(){const u=get('user',null);document.getElementById('accou
 window.logout=()=>{localStorage.removeItem(K+'user');page('home')};
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;const b=document.getElementById('installBtn');if(b)b.classList.remove('hidden')});
 window.installApp=()=>{if(deferredPrompt){deferredPrompt.prompt();deferredPrompt.userChoice.then(()=>deferredPrompt=null)}else alert('Use Chrome ⋮ → Install app or Add to Home screen.')};
-if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./service-worker.js?v=6'));
+if('serviceWorker' in navigator) window.addEventListener('load', async ()=>{ try{ const regs=await navigator.serviceWorker.getRegistrations(); for(const r of regs){ if(r.scope && r.scope.includes('/SKMedKART-Customer/')) await r.unregister(); } await caches.keys().then(keys=>Promise.all(keys.map(k=>caches.delete(k)))); }catch(e){console.warn('SKMedKART cache reset:',e)} try{ await navigator.serviceWorker.register('./service-worker.js?v=7'); }catch(e){console.warn('SKMedKART SW register:',e)} });
 showNotice();loadProducts();renderCart();updateCartBar();
