@@ -1,11 +1,12 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
-import { getFirestore, collection, addDoc, getDocs, query, where, serverTimestamp, onSnapshot, doc, runTransaction, getDoc } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+import { getFirestore, collection, addDoc, getDocs, query, where, serverTimestamp, onSnapshot, doc, runTransaction, getDoc, updateDoc } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js';
 
 const K='skm_v10_';
 const BUILTIN_FIREBASE_CONFIG={apiKey:'AIzaSyBdvOUiTVoBJHPE418iZqNzYftiN9yjooA',authDomain:'skmedkart.firebaseapp.com',projectId:'skmedkart',storageBucket:'skmedkart.firebasestorage.app',messagingSenderId:'921893232974',appId:'1:921893232974:web:45813196e59052e9597e1f'};
-const externalCfg=window.SKMED_FIREBASE_CONFIG||{};
-const cfg=(externalCfg&&externalCfg.projectId&&!String(externalCfg.projectId).startsWith('PASTE_'))?externalCfg:BUILTIN_FIREBASE_CONFIG;
+// ORDER RECEIVE FIX: Always use the shared SKMedKART Firebase project.
+// Do not allow a stale firebase-config.js on an old deployment to redirect orders elsewhere.
+const cfg=BUILTIN_FIREBASE_CONFIG;
 const configured=!!(cfg.projectId&&!String(cfg.projectId).startsWith('PASTE_'));
 let db=null,storage=null,unsubOrders=null,liveOrders=[];
 if(configured){const app=initializeApp(cfg);db=getFirestore(app);storage=getStorage(app)}
@@ -110,6 +111,9 @@ async function createOrderAtomically(items, orderData){
    }
    tx.set(orderRef,orderData);
  });
+ // Confirm the order exists in the shared Firestore project before reporting success.
+ const verify=await getDoc(orderRef);
+ if(!verify.exists()) throw new Error('Order was not confirmed in the shared Firebase orders collection.');
  return orderRef.id;
 }
 
@@ -124,10 +128,8 @@ window.placeOrder=async()=>{
  try{
   if(btn){btn.disabled=true;btn.textContent=needsRx?'Uploading Prescription...':'Placing Order...'}
 
-  // Upload prescription first. The uploaded URL is saved with the order.
-  const rx=await uploadRx(file,phoneV);
-  if(btn)btn.textContent='Submitting Order...';
-
+  // IMPORTANT: Never block order creation on prescription Storage upload.
+  // The Firestore order is created first so Admin receives it immediately.
   const status=needsRx?'Prescription Under Pharmacist Review':'Order Placed';
   const o={
     orderNumber:'SKM'+Date.now(),
@@ -138,7 +140,7 @@ window.placeOrder=async()=>{
     total:total(c),
     status,
     needsRx,
-    prescription:{...(rx||{}),doctor:document.getElementById('doctor').value.trim()},
+    prescription:{doctor:document.getElementById('doctor').value.trim(),uploadStatus:needsRx?'Pending':'Not required'},
     pharmacistNote:'',
     createdAt:configured?serverTimestamp():new Date().toISOString(),
     updatedAt:configured?serverTimestamp():new Date().toISOString(),
@@ -147,6 +149,23 @@ window.placeOrder=async()=>{
 
   const id=await createOrderAtomically(c,o);
   o.id=id;
+
+  // Prescription upload happens AFTER the order exists in Firestore.
+  // If Storage rules/network fail, the order is still received by Admin.
+  let rx=null,rxError='';
+  if(needsRx){
+    if(btn)btn.textContent='Uploading Prescription...';
+    try{
+      rx=await uploadRx(file,phoneV);
+      if(configured&&rx?.url) await updateDoc(doc(db,'orders',id),{prescription:{...rx,doctor:document.getElementById('doctor').value.trim(),uploadStatus:'Uploaded'},updatedAt:serverTimestamp()});
+      else if(configured) await updateDoc(doc(db,'orders',id),{prescription:{doctor:document.getElementById('doctor').value.trim(),uploadStatus:'Upload failed'},updatedAt:serverTimestamp()});
+      o.prescription={...(rx||{}),doctor:document.getElementById('doctor').value.trim(),uploadStatus:rx?.url?'Uploaded':'Upload failed'};
+    }catch(err){
+      rxError=err?.message||'Prescription upload failed';
+      console.error('Prescription upload error:',err);
+      try{if(configured)await updateDoc(doc(db,'orders',id),{prescription:{doctor:document.getElementById('doctor').value.trim(),uploadStatus:'Upload failed',error:rxError},updatedAt:serverTimestamp()})}catch(updateErr){console.error('Prescription status update failed:',updateErr)}
+    }
+  }
 
   const orderItems=c.map(x=>`• ${x.name} × ${x.qty}`).join('\n');
   const prescriptionMessage=rx?.url?`\n\n📋 *Prescription Link:*\n${rx.url}`:'';

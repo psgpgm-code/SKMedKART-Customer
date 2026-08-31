@@ -1,4 +1,4 @@
-const CACHE='skmedkart-pwa-v7';
+const CACHE='skmedkart-pwa-v9';
 const APP_SHELL=[
   './',
   './index.html',

@@ -10,7 +10,7 @@
 <section id="account" class="page"><h2>👤 My Account</h2><div id="accountBox" class="card"></div><button class="secondary" onclick="logout()">Logout</button><div class="card"><h3>📱 Install App</h3><p class="small">Chrome ⋮ → Install app. If Install does not appear, use Add to Home screen.</p><button id="installBtn" class="hidden" onclick="installApp()">Install SKMedKART</button></div></section>
 <nav><button onclick="page('home')"><span>🏠</span>Home</button><button onclick="page('catalogue')"><span>🔍</span>Search</button><button onclick="page('cart')"><span>🛒</span>Cart</button><button onclick="page('orders')"><span>📦</span>Orders</button><button onclick="page('account')"><span>👤</span>Account</button></nav><script>
 (function(){
-  const KEY='skmedkart_customer_cache_reset_v7';
+  const KEY='skmedkart_customer_cache_reset_v8';
   if(!sessionStorage.getItem(KEY)){
     sessionStorage.setItem(KEY,'1');
     if('serviceWorker' in navigator){
@@ -22,4 +22,4 @@
   }
 })();
 </script>
-<script src="firebase-config.js?v=7"></script><script type="module" src="app.js?v=7"></script></body></html>
+<script src="firebase-config.js?v=9"></script><script type="module" src="app.js?v=9"></script></body></html>
