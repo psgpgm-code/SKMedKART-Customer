@@ -1,0 +1,12 @@
+SKMedKART Customer supabase-test – Firebase-free catalogue test
+
+1. Open GitHub repo: psgpgm-code/SKMedKART-Customer
+2. Select branch: supabase-test
+3. Open app.js -> Edit -> replace the entire file with the supplied app.js.
+4. Commit to supabase-test only. Do NOT touch main.
+5. If the installed PWA still shows the old version, Chrome -> site settings -> storage -> clear site data, then reopen the test URL.
+
+Architecture:
+Admin Products/Stock -> Supabase public_catalog -> Customer Portal
+Customer checkout -> WhatsApp only
+No Firebase SDK/connection is used by this test app.
