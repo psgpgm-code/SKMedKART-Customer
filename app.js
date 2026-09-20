@@ -70,14 +70,39 @@ function getProduct(id){return products.find(p=>p.id===id)}
 
 window.page=id=>{document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));const el=document.getElementById(id);if(!el)return;el.classList.add('active');if(id==='home'){currentCat='All';renderProducts()}if(id==='catalogue')renderProducts();if(id==='cart')renderCart();if(id==='orders')startOrders();if(id==='account')renderAccount();window.scrollTo(0,0)};
 window.filterCat=c=>{currentCat=c;document.getElementById('catTitle').textContent=c+' Catalogue';page('catalogue')};
+window.requestMissingMedicine=name=>{
+ const medicine=String(name||'').trim();
+ if(!medicine)return;
+ const u=getUser();
+ const customer=u?.name?`\n👤 Customer: ${u.name}\n📱 Mobile: ${u.phone||'Not provided'}`:'';
+ const message=`📋 *Medicine Request - SKMedKART*\n\n💊 *Medicine/Product:* ${medicine}${customer}\n\nThe requested medicine is not currently available in the customer catalogue. Please check availability and inform me.`;
+ const whatsappUrl='https://api.whatsapp.com/send?phone=918300363317&text='+encodeURIComponent(message);
+ window.location.href=whatsappUrl;
+};
 window.renderProducts=()=>{
  const q=((document.getElementById('search')?.value||'')+' '+(document.getElementById('catSearch')?.value||'')).toLowerCase().trim();
  // Normal browsing remains stock-only; a name search also shows an out-of-stock
  // match so the customer can find the medicine instead of seeing a false no-result.
  const arr=products.filter(p=>(currentCat==='All'||p.cat===currentCat)&&(!q||[p.name,p.cat].join(' ').toLowerCase().includes(q))&&(q?true:Number(p.stock||0)>0));
- const html=arr.map(p=>{const inStock=Number(p.stock||0)>0;return `<div class="card product"><div class="pic">${esc(p.icon||'💊')}</div><div class="info"><b>${esc(p.name)}</b><div class="small">${esc(p.cat)}</div>${p.rx?'<span class="badge rx">Prescription required</span>':''}<div class="price">${Number(p.price)>0?'₹'+Number(p.price):'Price on confirmation'}</div><div class="small">${inStock?'In stock: '+Number(p.stock):'Out of stock'}</div></div>${inStock?`<button onclick="addCart('${esc(p.id)}')">Add</button>`:'<button disabled>Unavailable</button>'}</div>`}).join('')||'<div class="card small">No products found.</div>';
- document.getElementById('products').innerHTML=currentCat==='All'?html:'';
- document.getElementById('catalogueProducts').innerHTML=html;
+ const html=arr.map(p=>{const inStock=Number(p.stock||0)>0;return `<div class="card product"><div class="pic">${esc(p.icon||'💊')}</div><div class="info"><b>${esc(p.name)}</b><div class="small">${esc(p.cat)}</div>${p.rx?'<span class="badge rx">Prescription required</span>':''}<div class="price">${Number(p.price)>0?'₹'+Number(p.price):'Price on confirmation'}</div><div class="small">${inStock?'In stock: '+Number(p.stock):'Out of stock'}</div></div>${inStock?`<button onclick="addCart('${esc(p.id)}')">Add</button>`:'<button disabled>Unavailable</button>'}</div>`}).join('') || (q ? `<div class="card warning"><b>🔎 Medicine not found in our catalogue</b><p class="small">“${esc(q)}” is not currently listed. You can send a medicine request to Sri Krishna Medicals.</p><button onclick="requestMissingMedicine('${esc(q)}')">📋 Request This Medicine</button></div>` : '<div class="card small">No products found.</div>');
+ const homeProducts=document.getElementById('products');
+ const homeSearch=document.getElementById('search');
+ const homeSection=document.getElementById('home');
+ if(homeProducts&&homeSearch&&homeSection){
+   if(q){
+     // Put the existing product result container immediately below the Home search box.
+     // This changes only the visual order; no catalogue/order logic is changed.
+     homeSearch.insertAdjacentElement('afterend',homeProducts);
+     homeProducts.innerHTML=html;
+   }else{
+     // Restore the original position under Popular Products when the search is cleared.
+     const popular=Array.from(homeSection.querySelectorAll('h3')).find(x=>x.textContent.trim()==='Popular Products');
+     if(popular)popular.insertAdjacentElement('afterend',homeProducts);
+     homeProducts.innerHTML=currentCat==='All'?html:'';
+   }
+ }
+ const catalogue=document.getElementById('catalogueProducts');
+ if(catalogue)catalogue.innerHTML=html;
 };
 function cart(){return get('cart',[])}
 function saveCart(c){set('cart',c);updateCartBar()}
