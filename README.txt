@@ -1,13 +1,20 @@
-SKMedKART CUSTOMER V12 — FINAL ORDER SYNC FIX
+SKMedKART Customer — Medicine Delivery Feature
+================================================
 
-This package is based on V11 stable order-receive source and fixes the customer-side issues reported on 31-Aug-2026:
-1. Customer order is written to the shared skmedkart Firestore /orders collection before WhatsApp opens.
-2. Order uses the SKM order number as the Firestore document ID and is verified with getDoc().
-3. My Orders keeps a local confirmed copy and merges Firebase orders, so a temporary Firestore read/listener failure does not blank the page.
-4. Customer profile is stored under a stable non-versioned localStorage key, so refresh does not log the customer out.
-5. Prescription upload runs after the Firestore order is created; Storage failure cannot prevent Admin from receiving the order.
-6. Customer does NOT deduct stock. Admin reserves stock when the admin moves the order to Confirmed/Ready/Out for Delivery.
-7. PWA cache is V12 and network-first for same-origin files; old V1/V11 caches are removed on service-worker activation.
-8. No Admin Portal files are changed.
+Prepared for the existing Customer main portal.
 
-Deploy ALL files in this folder to the Customer GitHub Pages repository. Do not mix V10 files with this package.
+Rules implemented:
+• Medicine-only offer.
+• ₹2,000+ medicine order = FREE DELIVERY.
+• Within 1 km: ₹1,000+ medicines = FREE; below ₹1,000 = ₹30.
+• Above 1 km = ₹60.
+• Store Pickup = ₹0.
+• Food products are explicitly excluded.
+• Mixed medicine + non-medicine carts do NOT receive the medicine offer.
+• Checkout shows delivery fee and final total.
+• WhatsApp order contains subtotal, delivery fee, distance (when available), and final total.
+• Customer GPS is used for the 1 km calculation; the shop address is geocoded for distance calculation.
+• No existing catalogue, order-history, search, login, prescription, or WhatsApp feature is intentionally removed.
+
+Important:
+The connected GitHub integration returned HTTP 403 for direct writes to Customer main, so this ZIP contains the exact targeted patch rather than claiming that GitHub main was modified.

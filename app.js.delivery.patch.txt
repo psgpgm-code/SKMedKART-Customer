@@ -1,0 +1,56 @@
+SKMedKART Customer — DELIVERY FEATURE PATCH ONLY
+
+1) In app.js, immediately after:
+const total=c=>c.reduce((s,x)=>s+(Number(x.price)||0)*Number(x.qty||0),0);
+
+ADD:
+
+// DELIVERY OFFER — MEDICINES ONLY. Food/non-medicine products never qualify.
+// Mixed carts are non-eligible so food products never receive the medicine offer.
+const FREE_DELIVERY_AMOUNT=2000,NEAR_FREE_DELIVERY_AMOUNT=1000,NEAR_DELIVERY_CHARGE=30,STANDARD_DELIVERY_CHARGE=60;
+const SHOP_ADDRESS='Major District Road 349, Hogenakkal - Pennagaram Road, near Indian Bank, Pennagaram, Tamil Nadu 636810';
+let shopLocation=null,customerDistanceKm=null;
+function isMedicineProduct(p){const t=[p?.cat,p?.category,p?.type,p?.productType].filter(Boolean).join(' ').toLowerCase();return /\b(medicine|medicines|human medicine|human medicines|veterinary medicine|veterinary medicines|pharmacy)\b/.test(t)}
+function medicineOnlyCart(c){return Array.isArray(c)&&c.length>0&&c.every(isMedicineProduct)}
+function haversineKm(a,b,c,d){const R=6371,r=Math.PI/180,x=(c-a)*r,y=(d-b)*r,z=Math.sin(x/2)**2+Math.cos(a*r)*Math.cos(c*r)*Math.sin(y/2)**2;return R*2*Math.atan2(Math.sqrt(z),Math.sqrt(1-z))}
+async function getShopLocation(){if(shopLocation)return shopLocation;try{const r=await fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q='+encodeURIComponent(SHOP_ADDRESS),{headers:{Accept:'application/json'}});if(!r.ok)throw Error('Shop location lookup failed');const d=await r.json();if(!d?.[0])throw Error('Shop location not found');shopLocation={lat:Number(d[0].lat),lon:Number(d[0].lon)};return shopLocation}catch(e){console.warn('Shop location lookup:',e);return null}}
+async function checkDeliveryDistance(){const o=document.getElementById('deliveryDistance');if(o)o.innerHTML='📍 Checking your distance from Sri Krishna Medicals...';if(!navigator.geolocation){customerDistanceKm=null;if(o)o.innerHTML='⚠️ Location unavailable. Standard delivery ₹60 will apply.';renderDeliverySummary();return}try{const p=await new Promise((res,rej)=>navigator.geolocation.getCurrentPosition(res,rej,{enableHighAccuracy:true,timeout:12000,maximumAge:300000})),s=await getShopLocation();if(!s)throw Error('Shop location unavailable');customerDistanceKm=haversineKm(p.coords.latitude,p.coords.longitude,s.lat,s.lon);if(o)o.innerHTML='📍 Your delivery distance: <b>'+customerDistanceKm.toFixed(2)+' km</b>';renderDeliverySummary()}catch(e){console.warn('Delivery distance:',e);customerDistanceKm=null;if(o)o.innerHTML='⚠️ Could not check location. Standard delivery ₹60 will apply.';renderDeliverySummary()}}
+function deliveryCharge(c,d){if(d==='Store Pickup')return 0;const s=total(c),ok=medicineOnlyCart(c);if(ok&&s>=FREE_DELIVERY_AMOUNT)return 0;if(ok&&customerDistanceKm!==null&&customerDistanceKm<=1)return s>=NEAR_FREE_DELIVERY_AMOUNT?0:NEAR_DELIVERY_CHARGE;return STANDARD_DELIVERY_CHARGE}
+function renderDeliverySummary(){const e=document.getElementById('deliverySummary');if(!e)return;const c=cart(),d=document.getElementById('delivery')?.value||'Home Delivery';if(!c.length){e.innerHTML='';return}const s=total(c),ok=medicineOnlyCart(c),f=deliveryCharge(c,d),g=s+f;if(d==='Store Pickup'){e.innerHTML='🏪 <b>Store Pickup — ₹0 delivery</b><br><span class="small">Subtotal: ₹'+s+' • Total: ₹'+g+'</span>';return}if(!ok){e.innerHTML='⚠️ <b>Medicine FREE DELIVERY offer does not apply to this cart.</b><br><span class="small">This offer is for medicines only and is <b>NOT applicable to food products</b> or other non-medicine products.<br>Delivery: ₹'+f+' • <b>Final Total: ₹'+g+'</b></span>';return}if(f===0){e.innerHTML='🎉 <b>FREE DELIVERY 🚚</b><br><span class="small">'+(s>=FREE_DELIVERY_AMOUNT?'Order ₹2,000+ medicine offer applied.':'Within 1 km • Order ₹1,000+ medicine offer applied.')+'<br>Subtotal: ₹'+s+' • Delivery: ₹0 • <b>Total: ₹'+g+'</b></span>';return}const dt=customerDistanceKm===null?'Tap “Check Delivery Distance” to calculate the 1 km offer.':'Distance: '+customerDistanceKm.toFixed(2)+' km';const nt=customerDistanceKm!==null&&customerDistanceKm<=1?'Within 1 km: ₹1,000+ medicines = FREE; below ₹1,000 = ₹30.':'Above 1 km: standard delivery ₹60.';e.innerHTML='🚚 <b>Delivery: ₹'+f+'</b><br><span class="small">'+dt+'<br>'+nt+'<br>₹2,000+ medicines = FREE DELIVERY.<br>Subtotal: ₹'+s+' • <b>Final Total: ₹'+g+'</b></span>'}
+
+2) Change the existing placeOrder first line:
+const c=cart(),nameV=...payV=document.getElementById('pay').value;
+
+to add immediately after it:
+const subtotal=total(c),deliveryFee=deliveryCharge(c,deliveryV),grandTotal=subtotal+deliveryFee;
+
+3) In the order object, replace:
+items:c,
+total:total(c),
+
+with:
+items:c,
+subtotal,
+deliveryCharge:deliveryFee,
+deliveryDistanceKm:customerDistanceKm,
+total:grandTotal,
+
+4) Replace the existing WhatsApp message block with:
+
+const distanceLine=customerDistanceKm!==null?'\n📍 *Delivery Distance:* '+customerDistanceKm.toFixed(2)+' km':'';
+const deliveryLine=deliveryFee===0?'FREE':'₹'+deliveryFee;
+const message='🛒 *New SKMedKART Order*\n\n🆔 *Order ID:* '+o.orderNumber+'\n\n👤 *Customer:* '+nameV+'\n📱 *Mobile:* '+phoneV+'\n🏠 *Address:* '+(addressV||'Store Pickup')+'\n🚚 *Delivery:* '+deliveryV+'\n💳 *Payment:* '+payV+'\n\n📦 *Order Items:*\n'+orderItems+'\n\n💰 *Subtotal: ₹'+subtotal+'*\n🚚 *Delivery: '+deliveryLine+'*'+distanceLine+'\n💰 *Final Total: ₹'+grandTotal+'*'+prescriptionMessage;
+
+5) Change:
+window.changeQty=...renderCart()};
+to call renderDeliverySummary() after renderCart().
+
+6) Change:
+window.removeCart=...renderCart()};
+to call renderDeliverySummary() after renderCart().
+
+7) Change goToCheckout so after page('checkout') it also calls:
+renderDeliverySummary();
+
+8) Before the beforeinstallprompt listener add:
+document.addEventListener('change',e=>{if(e.target?.id==='delivery')renderDeliverySummary()});

@@ -1,0 +1,22 @@
+SKMedKART Customer — index.html DELIVERY PATCH ONLY
+
+1) Add this immediately after the Home search input:
+
+<div class="deliveryOffer">🚚 <b>FREE DELIVERY OFFER — MEDICINES ONLY</b> 🚚<br><span class="small">₹2,000+ medicines: FREE DELIVERY • Within 1 km: ₹1,000+ medicines FREE / below ₹1,000 ₹30 • Above 1 km ₹60<br>⚠️ This offer is <b>NOT applicable to food products</b> or other non-medicine products.</span></div>
+
+2) Add this CSS inside the existing <style> block:
+
+.deliveryOffer{background:#e8f7ef;border:1px solid #b9e7cc;color:#126a3f;border-radius:18px;padding:13px;margin:10px 0;text-align:center;font-weight:700}
+
+3) In Checkout, immediately after the existing delivery select, add:
+
+<button type="button" class="secondary wide" onclick="checkDeliveryDistance()">📍 Check Delivery Distance</button>
+<div id="deliveryDistance" class="small">Tap the button to check your distance from Sri Krishna Medicals.</div>
+<div id="deliverySummary" class="card success"></div>
+
+4) Change the script version at the bottom from:
+app.js?v=12
+to:
+app.js?v=13
+
+NO OTHER FEATURE OR FILE SHOULD BE CHANGED.
