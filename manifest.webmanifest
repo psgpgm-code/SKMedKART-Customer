@@ -1,10 +1,10 @@
 {
-  "id": "/SKMedKART-Customer/",
+  "id": "./",
   "name": "SKMedKART",
   "short_name": "SKMedKART",
   "description": "Sri Krishna Medicals - Online Pharmacy",
-  "start_url": "/SKMedKART-Customer/",
-  "scope": "/SKMedKART-Customer/",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "display_override": [
     "standalone",
@@ -16,13 +16,13 @@
   "prefer_related_applications": false,
   "icons": [
     {
-      "src": "/SKMedKART-Customer/icons/icon-192.png",
+      "src": "icons/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/SKMedKART-Customer/icons/icon-512.png",
+      "src": "icons/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"

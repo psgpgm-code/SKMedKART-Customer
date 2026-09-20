@@ -1,5 +1,5 @@
-const CACHE='skmedkart-customer-v14';
-const APP_SHELL=['./','./index.html','./manifest.webmanifest?v=14','./icons/icon-192.png','./icons/icon-512.png'];
+const CACHE='skmedkart-customer-v16';
+const APP_SHELL=['./','./index.html','./manifest.webmanifest?v=16','./icons/icon-192.png','./icons/icon-512.png'];
 self.addEventListener('install',event=>{event.waitUntil(caches.open(CACHE).then(c=>c.addAll(APP_SHELL)).catch(()=>{}));self.skipWaiting()});
 self.addEventListener('activate',event=>{event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))));self.clients.claim()});
 self.addEventListener('fetch',event=>{

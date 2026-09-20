@@ -259,7 +259,7 @@ window.logout=()=>{clearUser();page('home')};
   }catch(e){console.warn('Customer profile restore:',e)}
 })();
 
-window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;const b=document.getElementById('installBtn');if(b)b.classList.remove('hidden')});
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;const b=document.getElementById('installBtn');const h=document.getElementById('homeInstallBtn');if(b)b.classList.remove('hidden');if(h)h.classList.remove('hidden')});
 window.installApp=()=>{if(deferredPrompt){deferredPrompt.prompt();deferredPrompt.userChoice.then(()=>deferredPrompt=null)}else alert('Use Chrome ⋮ → Install app or Add to Home screen.')};
-if('serviceWorker' in navigator) window.addEventListener('load',()=>{ navigator.serviceWorker.register('./service-worker.js?v=12').catch(e=>console.warn('SKMedKART SW register:',e)); });
+if('serviceWorker' in navigator) window.addEventListener('load',()=>{ navigator.serviceWorker.register('./service-worker.js?v=16').catch(e=>console.warn('SKMedKART SW register:',e)); });
 showNotice();loadProducts();renderCart();updateCartBar();
