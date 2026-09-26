@@ -57,10 +57,10 @@ function initLocalProducts(){let p=get('products',null);if(!Array.isArray(p)){p=
 function showNotice(){const n=document.getElementById('backendNotice');if(!configured){n.classList.remove('hidden');n.innerHTML='<b>📱 Test mode on this phone</b><br><span class="small">Checkout and Admin Portal work for testing. For live customer orders, stock and notifications across different phones, Firebase must be configured once.</span>'}}
 async function loadProducts(){
   try{
-    const r=await fetch(SUPABASE_URL+'/rest/v1/public_catalog?select=id,name,category,price,mrp,stock,rx,active,updated_at&active=eq.true&stock=gt.0&order=name',{headers:{apikey:SUPABASE_PUBLISHABLE_KEY,Accept:'application/json'}});
+    const r=await fetch(SUPABASE_URL+'/rest/v1/public_catalog?select=id,name,category,price,mrp,stock,rx,product_image,active,updated_at&active=eq.true&stock=gt.0&order=name',{headers:{apikey:SUPABASE_PUBLISHABLE_KEY,Accept:'application/json'}});
     if(!r.ok)throw Error('Supabase HTTP '+r.status);
     const data=await r.json();
-    products=(data||[]).map(p=>({id:p.id,name:p.name,cat:p.category||'Human Medicines',category:p.category||'Human Medicines',price:Number(p.price||0),mrp:Number(p.mrp||0),stock:Math.max(0,Number(p.stock||0)),rx:p.rx===true,icon:p.icon||'💊',active:p.active!==false})).filter(p=>p.active!==false);
+    products=(data||[]).map(p=>({id:p.id,name:p.name,cat:p.category||'Human Medicines',category:p.category||'Human Medicines',price:Number(p.price||0),mrp:Number(p.mrp||0),stock:Math.max(0,Number(p.stock||0)),rx:p.rx===true,productImage:p.product_image||'',icon:p.icon||'💊',active:p.active!==false})).filter(p=>p.active!==false&&p.stock>0);
     renderProducts(); return;
   }catch(e){console.warn('Supabase catalogue load failed, keeping existing catalogue:',e)}
   if(!configured){initLocalProducts();renderProducts();return}
@@ -70,39 +70,12 @@ function getProduct(id){return products.find(p=>p.id===id)}
 
 window.page=id=>{document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));const el=document.getElementById(id);if(!el)return;el.classList.add('active');if(id==='home'){currentCat='All';renderProducts()}if(id==='catalogue')renderProducts();if(id==='cart')renderCart();if(id==='orders')startOrders();if(id==='account')renderAccount();window.scrollTo(0,0)};
 window.filterCat=c=>{currentCat=c;document.getElementById('catTitle').textContent=c+' Catalogue';page('catalogue')};
-window.requestMissingMedicine=name=>{
- const medicine=String(name||'').trim();
- if(!medicine)return;
- const u=getUser();
- const customer=u?.name?`\n👤 Customer: ${u.name}\n📱 Mobile: ${u.phone||'Not provided'}`:'';
- const message=`📋 *Medicine Request - SKMedKART*\n\n💊 *Medicine/Product:* ${medicine}${customer}\n\nThe requested medicine is not currently available in the customer catalogue. Please check availability and inform me.`;
- const whatsappUrl='https://api.whatsapp.com/send?phone=918300363317&text='+encodeURIComponent(message);
- window.location.href=whatsappUrl;
-};
 window.renderProducts=()=>{
  const q=((document.getElementById('search')?.value||'')+' '+(document.getElementById('catSearch')?.value||'')).toLowerCase().trim();
- // Normal browsing remains stock-only; a name search also shows an out-of-stock
- // match so the customer can find the medicine instead of seeing a false no-result.
- const arr=products.filter(p=>(currentCat==='All'||p.cat===currentCat)&&(!q||[p.name,p.cat].join(' ').toLowerCase().includes(q))&&(q?true:Number(p.stock||0)>0));
- const html=arr.map(p=>{const inStock=Number(p.stock||0)>0;return `<div class="card product"><div class="pic">${esc(p.icon||'💊')}</div><div class="info"><b>${esc(p.name)}</b><div class="small">${esc(p.cat)}</div>${p.rx?'<span class="badge rx">Prescription required</span>':''}<div class="price">${Number(p.price)>0?'₹'+Number(p.price):'Price on confirmation'}</div><div class="small">${inStock?'In stock: '+Number(p.stock):'Out of stock'}</div></div>${inStock?`<button onclick="addCart('${esc(p.id)}')">Add</button>`:'<button disabled>Unavailable</button>'}</div>`}).join('') || (q ? `<div class="card warning"><b>🔎 Medicine not found in our catalogue</b><p class="small">“${esc(q)}” is not currently listed. You can send a medicine request to Sri Krishna Medicals.</p><button onclick="requestMissingMedicine('${esc(q)}')">📋 Request This Medicine</button></div>` : '<div class="card small">No products found.</div>');
- const homeProducts=document.getElementById('products');
- const homeSearch=document.getElementById('search');
- const homeSection=document.getElementById('home');
- if(homeProducts&&homeSearch&&homeSection){
-   if(q){
-     // Put the existing product result container immediately below the Home search box.
-     // This changes only the visual order; no catalogue/order logic is changed.
-     homeSearch.insertAdjacentElement('afterend',homeProducts);
-     homeProducts.innerHTML=html;
-   }else{
-     // Restore the original position under Popular Products when the search is cleared.
-     const popular=Array.from(homeSection.querySelectorAll('h3')).find(x=>x.textContent.trim()==='Popular Products');
-     if(popular)popular.insertAdjacentElement('afterend',homeProducts);
-     homeProducts.innerHTML=currentCat==='All'?html:'';
-   }
- }
- const catalogue=document.getElementById('catalogueProducts');
- if(catalogue)catalogue.innerHTML=html;
+ const arr=products.filter(p=>(currentCat==='All'||p.cat===currentCat)&&(!q||[p.name,p.cat].join(' ').toLowerCase().includes(q))&&Number(p.stock||0)>0);
+ const html=arr.map(p=>`<div class="card product"><div class="pic">${p.productImage?`<img src="${esc(p.productImage)}" alt="${esc(p.name)}" style="width:55px;height:55px;object-fit:contain;border-radius:14px;background:#fff">`:esc(p.icon||'💊')}</div><div class="info"><b>${esc(p.name)}</b><div class="small">${esc(p.cat)}</div>${p.rx?'<span class="badge rx">Prescription required</span>':''}<div class="price">${Number(p.price)>0?'₹'+Number(p.price):'Price on confirmation'}</div><div class="small">In stock: ${Number(p.stock||0)}</div></div><button onclick="addCart('${esc(p.id)}')">Add</button></div>`).join('')||'<div class="card small">No products available in this category right now.</div>';
+ document.getElementById('products').innerHTML=currentCat==='All'?html:'';
+ document.getElementById('catalogueProducts').innerHTML=html;
 };
 function cart(){return get('cart',[])}
 function saveCart(c){set('cart',c);updateCartBar()}
@@ -223,9 +196,9 @@ window.placeOrder=async()=>{
 function startOrders(){
  let u=getUser();
  if(!u){renderOrders([]);return}
- const local=get('orders',[]).filter(o=>String(o.customer?.phone||o.phone||'')===String(u.phone)).sort((a,b)=>ts(b.createdAt)-ts(a.createdAt));
- liveOrders=local.slice();
- renderOrders(liveOrders);
+ const local=get('orders',[]).filter(o=>o.customer?.phone===u.phone).sort((a,b)=>ts(b.createdAt)-ts(a.createdAt));
+ liveOrders=local;
+ renderOrders(local);
  if(!configured)return;
  // Customer order history must never disappear because a Firestore read rule
  // rejects a customer query. Local confirmed orders remain visible.
@@ -234,11 +207,9 @@ function startOrders(){
  try{
    unsubOrders=onSnapshot(query(collection(db,'orders'),where('customer.phone','==',u.phone)),s=>{
      const remote=s.docs.map(d=>({id:d.id,...d.data()}));
-     const localNow=get('orders',[]).filter(x=>String(x.customer?.phone||x.phone||'')===String(u.phone));
-     const byId=new Map();
-     for(const x of remote)byId.set(x.id,x);
-     for(const x of localNow)if(!byId.has(x.id))byId.set(x.id,x);
-     liveOrders=[...byId.values()].sort((a,b)=>ts(b.createdAt)-ts(a.createdAt));
+     const remoteIds=new Set(remote.map(x=>x.id));
+     const keepLocal=local.filter(x=>!remoteIds.has(x.id));
+     liveOrders=[...remote,...keepLocal].sort((a,b)=>ts(b.createdAt)-ts(a.createdAt));
      renderOrders(liveOrders);
      set('orders',liveOrders.slice(0,50));
    },e=>{console.warn('Customer orders read unavailable; keeping local history:',e?.code||e?.message);renderOrders(liveOrders)});
